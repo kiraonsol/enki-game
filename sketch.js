@@ -26,7 +26,7 @@ let redSmallFrame, greenSmallFrame;
 let redMicroFrame, greenMicroFrame;
 let heartSpinSheet;
 let firepowerSheet;
-let leaderboard = [];
+let leaderboard = []; // Will be populated from Firebase
 let playerName = "";
 let nameInputActive = false;
 let boss = null;
@@ -35,6 +35,21 @@ let gameWidth = 400;
 let gameHeight = 600;
 let scalingFactor;
 let shootTimer = 0;
+
+// Firebase client-side configuration (replace with your actual config from Firebase Console)
+const firebaseConfig = {
+  apiKey: "your-api-key",
+  authDomain: "your-project-id.firebaseapp.com",
+  databaseURL: "https://your-project-id.firebaseio.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project-id.appspot.com",
+  messagingSenderId: "your-messaging-sender-id",
+  appId: "your-app-id"
+};
+
+// Initialize Firebase Client SDK
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
 function preload() {
   enkiiLogo = loadImage('enkii-logo.png');
@@ -100,7 +115,7 @@ function setup() {
       speed: random(1, 5)
     });
   }
-  loadLeaderboard();
+  loadLeaderboard(); // Load leaderboard from Firebase
   selectEnemyFrames();
 }
 
@@ -428,6 +443,16 @@ function draw() {
     text(`Score: ${player.score}`, gameWidth / 2, gameHeight / 2);
     text(playerName + (frameCount % 60 < 30 ? "_" : ""), gameWidth / 2, gameHeight / 2 + 50);
     text("Tap to enter name", gameWidth / 2, gameHeight / 2 + 100);
+    if (!nameInputActive) {
+      nameInputActive = true;
+      playerName = prompt("Enter your name (max 10 characters):", playerName) || "";
+      if (playerName.length > 10) playerName = playerName.substring(0, 10);
+      if (playerName.trim().length > 0) {
+        addToLeaderboard(playerName.trim(), player.score);
+        gameState = "gameover";
+      }
+      nameInputActive = false;
+    }
   }
 }
 
@@ -439,7 +464,6 @@ function touchStarted() {
     if (playerName && playerName.length > 10) playerName = playerName.substring(0, 10);
     if (playerName && playerName.trim().length > 0) {
       addToLeaderboard(playerName.trim(), player.score);
-      saveLeaderboard();
       gameState = "gameover";
     }
   }
@@ -461,7 +485,6 @@ function keyPressed() {
       if (keyCode === ENTER) {
         if (playerName.trim().length > 0) {
           addToLeaderboard(playerName.trim(), player.score);
-          saveLeaderboard();
           gameState = "gameover";
         }
       } else if (keyCode === BACKSPACE) {
@@ -856,22 +879,40 @@ function playPowerUpSound() {
   setTimeout(() => shootOsc.amp(0, 0.1), 100);
 }
 
+// Leaderboard functions with Firebase Client SDK
 function loadLeaderboard() {
-  leaderboard = [
-    { name: "Player1", score: 5000 },
-    { name: "Player2", score: 4500 },
-    { name: "Player3", score: 4000 }
-  ].sort((a, b) => b.score - a.score).slice(0, 5);
-}
-
-function saveLeaderboard() {
-  leaderboard.push({ name: playerName, score: player.score });
-  leaderboard.sort((a, b) => b.score - a.score);
-  leaderboard = leaderboard.slice(0, 5);
+  database.ref('leaderboard').once('value').then(snapshot => {
+    leaderboard = Object.values(snapshot.val() || [
+      { name: "Player1", score: 5000 },
+      { name: "Player2", score: 4500 },
+      { name: "Player3", score: 4000 }
+    ]).sort((a, b) => b.score - a.score).slice(0, 5);
+  }).catch(error => {
+    console.error('Error loading leaderboard from Firebase:', error);
+    leaderboard = [
+      { name: "Player1", score: 5000 },
+      { name: "Player2", score: 4500 },
+      { name: "Player3", score: 4000 }
+    ].sort((a, b) => b.score - a.score).slice(0, 5);
+  });
 }
 
 function addToLeaderboard(name, score) {
-  leaderboard.push({ name, score });
-  leaderboard.sort((a, b) => b.score - a.score);
-  leaderboard = leaderboard.slice(0, 5);
+  database.ref('leaderboard').push({ name, score }).then(() => {
+    database.ref('leaderboard').once('value').then(snapshot => {
+      leaderboard = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
+    }).catch(error => {
+      console.error('Error updating leaderboard from Firebase:', error);
+      // Fallback: Store locally temporarily (optional)
+      leaderboard.push({ name, score });
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 5);
+    });
+  }).catch(error => {
+    console.error('Error pushing to Firebase:', error);
+    // Fallback: Store locally temporarily (optional)
+    leaderboard.push({ name, score });
+    leaderboard.sort((a, b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0, 5);
+  });
 }
