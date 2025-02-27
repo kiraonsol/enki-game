@@ -38,6 +38,7 @@ let gameWidth = 400;
 let gameHeight = 600;
 let scalingFactor;
 let shootTimer = 0;
+let isTelegram = typeof Telegram !== 'undefined' && Telegram.WebApp; // Detect Telegram WebApp
 
 // Use the globally exposed Firebase database from index.html, with a fallback
 const database = window.database || null;
@@ -178,9 +179,9 @@ function draw() {
       let touchX = touches[0].x / scalingFactor; // Raw touch X position (logical coordinates)
       let touchY = touches[0].y / scalingFactor; // Raw touch Y position (logical coordinates)
 
-      // Offset the player position 60 pixels up from the touch point (no horizontal offset)
+      // Offset the player position 80 pixels up from the touch point (no horizontal offset)
       const offsetX = 0; // No left/right offset
-      const offsetY = 60; // Move 60 pixels up (adjust as needed)
+      const offsetY = 80; // Move 80 pixels up (adjust as needed to be in front of thumb)
 
       // Set player position with offset, constrained to game bounds
       player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
@@ -317,7 +318,10 @@ function draw() {
                 bullets.splice(i, 1);
                 playHitSound();
                 if (player.lives <= 0) {
-                  gameState = "nameInput"; // Switch to name input state on game over
+                  gameState = "gameover"; // Show "GAME OVER" first
+                  setTimeout(() => {
+                    gameState = "nameInput"; // Transition to name input after 2 seconds
+                  }, 2000);
                 } else {
                   // Respawn player
                   player.x = gameWidth / 2;
@@ -334,7 +338,10 @@ function draw() {
                 bullets.splice(i, 1);
                 playHitSound();
                 if (player.lives <= 0) {
-                  gameState = "nameInput"; // Switch to name input state on game over
+                  gameState = "gameover"; // Show "GAME OVER" first
+                  setTimeout(() => {
+                    gameState = "nameInput"; // Transition to name input after 2 seconds
+                  }, 2000);
                 } else {
                   // Respawn player
                   player.x = gameWidth / 2;
@@ -354,7 +361,10 @@ function draw() {
             bullets.splice(i, 1);
             playHitSound();
             if (player.lives <= 0) {
-              gameState = "nameInput"; // Switch to name input state on game over
+              gameState = "gameover"; // Show "GAME OVER" first
+              setTimeout(() => {
+                gameState = "nameInput"; // Transition to name input after 2 seconds
+              }, 2000);
             } else {
               // Respawn player
               player.x = gameWidth / 2;
@@ -450,16 +460,39 @@ function draw() {
     text("Enter Your Name", gameWidth / 2, gameHeight / 2 - 50);
     textSize(16 / scalingFactor);
     text(`Score: ${player.score}`, gameWidth / 2, gameHeight / 2);
-    
-    // Draw input box and text
-    fill(50); // Dark gray background for input box
-    rectMode(CENTER);
-    rect(gameWidth / 2, gameHeight / 2 + 50, 200, 30); // Input box (200x30 pixels, centered)
-    fill(255);
-    textAlign(LEFT, CENTER);
-    text(nameInputText + (frameCount % 60 < 30 ? "_" : ""), gameWidth / 2 - 90, gameHeight / 2 + 50); // Blinking cursor
-    
-    text("Tap to edit, tap again to submit", gameWidth / 2, gameHeight / 2 + 100);
+
+    if (isTelegram) {
+      // Use Telegram WebApp for input (simplified; requires actual Telegram WebApp integration)
+      text("Tap to open Telegram input (not implemented here)", gameWidth / 2, gameHeight / 2 + 100);
+      // For a real implementation, use Telegram.WebApp.showPopup or custom HTML input
+      /*
+      if (!nameInputActive) {
+        Telegram.WebApp.showPopup({
+          title: "Enter Your Name",
+          message: `Score: ${player.score}`,
+          input_field_placeholder: "Your name (max 10 chars)",
+          buttons: [{ text: "Submit", type: "ok" }]
+        }, (data) => {
+          if (data.text && data.text.trim().length > 0) {
+            playerName = data.text.trim().substring(0, 10);
+            addToLeaderboard(playerName, player.score);
+            gameState = "gameover";
+          }
+        });
+        nameInputActive = true;
+      }
+      */
+    } else {
+      // In-game input for non-Telegram (mobile/desktop browsers)
+      // Draw input box and text
+      fill(50); // Dark gray background for input box
+      rectMode(CENTER);
+      rect(gameWidth / 2, gameHeight / 2 + 50, 200, 30); // Input box (200x30 pixels, centered)
+      fill(255);
+      textAlign(LEFT, CENTER);
+      text(nameInputText + (frameCount % 60 < 30 ? "_" : ""), gameWidth / 2 - 90, gameHeight / 2 + 50); // Blinking cursor
+      text("Tap to edit, tap again to submit", gameWidth / 2, gameHeight / 2 + 100);
+    }
   }
 }
 
@@ -467,27 +500,33 @@ function touchStarted() {
   if (gameState === "start" || gameState === "gameover") {
     startGame();
   } else if (gameState === "nameInput") {
-    if (!nameInputActive) {
-      nameInputActive = true;
-      nameInputText = playerName || ""; // Start with current name or empty
-      nameInputCursor = nameInputText.length;
+    if (isTelegram) {
+      // Use Telegram.WebApp for input (requires full Telegram WebApp setup)
+      console.log('Telegram input triggered (implement WebApp.showPopup or similar)');
+      // Placeholder: For real implementation, use Telegram.WebApp.showPopup as above
     } else {
-      // Submit name when tapping again
-      playerName = nameInputText.trim();
-      if (playerName.length > 0) {
-        addToLeaderboard(playerName, player.score);
-        gameState = "gameover";
+      if (!nameInputActive) {
+        nameInputActive = true;
+        nameInputText = playerName || ""; // Start with current name or empty
+        nameInputCursor = nameInputText.length;
+      } else {
+        // Submit name when tapping again
+        playerName = nameInputText.trim();
+        if (playerName.length > 0) {
+          addToLeaderboard(playerName, player.score);
+          gameState = "gameover";
+        }
+        nameInputActive = false;
+        nameInputText = "";
+        nameInputCursor = 0;
       }
-      nameInputActive = false;
-      nameInputText = "";
-      nameInputCursor = 0;
     }
   }
   return false;
 }
 
 function touchMoved() {
-  if (gameState === "nameInput" && nameInputActive) {
+  if (gameState === "nameInput" && nameInputActive && !isTelegram) {
     // Simulate typing by checking touch position for character selection
     let touchX = touches[0].x / scalingFactor;
     let touchY = touches[0].y / scalingFactor;
@@ -696,7 +735,10 @@ class Enemy {
             player.y = gameHeight - 20;
           }, 1000);
         } else {
-          gameState = "nameInput";
+          gameState = "gameover"; // Show "GAME OVER" first
+          setTimeout(() => {
+            gameState = "nameInput"; // Transition to name input after 2 seconds
+          }, 2000);
         }
         playHitSound();
       }
