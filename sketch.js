@@ -6,6 +6,7 @@ let explosions = [];
 let upgrades = [];
 let gameState = "start";
 let stage = 1;
+let levelTransition = false; // Flag to prevent multiple stage increments
 let stars = [];
 let shootOsc, explodeOsc, hitOsc;
 let enkiiLogo;
@@ -237,7 +238,7 @@ function draw() {
               explosions.push(new Explosion(bossX, bossY));
               boss = null; // Boss defeated
               minions = []; // Clear minions
-              stage++; // Move to next regular stage
+              // Removed stage++ here to avoid duplicate increment
               playExplosionSound();
               if (random() < 0.5) {
                 upgrades.push(new Upgrade(bossX, bossY, floor(random(2))));
@@ -410,20 +411,26 @@ function draw() {
       text("Boss Health: " + boss.health, 10, 80);
     }
 
-    // Next stage or boss/minions defeated transition
-    if (stage % 5 === 0) { // Boss level
-      if (!boss && minions.length === 0) {
-        stage++;
-        createEnemies(stage);
-        selectEnemyFrames();
-      }
-    } else if (enemies.length === 0) {
-      stage++;
-      if (stage % 5 === 0) {
-        spawnBossAndMinions();
-      } else {
-        createEnemies(stage);
-        selectEnemyFrames();
+    // Consolidated level progression logic with transition flag
+    if (!levelTransition) {
+      if (stage % 5 === 0) { // Boss level
+        if (!boss && minions.length === 0) {
+          levelTransition = true; // Set flag to prevent multiple increments
+          stage++; // Increment stage once
+          createEnemies(stage);
+          selectEnemyFrames();
+          levelTransition = false; // Reset flag after transition
+        }
+      } else if (enemies.length === 0) { // Regular level
+        levelTransition = true; // Set flag to prevent multiple increments
+        stage++; // Increment stage once
+        if (stage % 5 === 0) {
+          spawnBossAndMinions();
+        } else {
+          createEnemies(stage);
+          selectEnemyFrames();
+        }
+        levelTransition = false; // Reset flag after transition
       }
     }
   } else if (gameState === "gameover") {
@@ -474,6 +481,7 @@ function startGame() {
   explosions = [];
   upgrades = [];
   stage = 1;
+  levelTransition = false; // Reset flag on game start
   playerName = "";
   boss = null;
   minions = [];
