@@ -36,9 +36,70 @@
     canvas {
       display: block;
     }
+    #nameInputOverlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+      z-index: 10;
+    }
+    #nameInputOverlay input {
+      width: 200px;
+      padding: 5px;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    #nameInputOverlay button {
+      padding: 5px 15px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
+  <div id="nameInputOverlay">
+    <h2>Enter Your Name</h2>
+    <p>Score: <span id="currentScore">0</span></p>
+    <input type="text" id="nameInput" maxlength="10" placeholder="Your name (max 10 chars)">
+    <button onclick="submitName()">Submit</button>
+  </div>
   <script src="sketch.js"></script>
+  <script>
+    // Global variables for communication between index.html and sketch.js
+    window.gameState = "start";
+    window.playerScore = 0;
+    window.playerName = "";
+
+    // Function to show/hide name input overlay
+    function showNameInput(score) {
+      document.getElementById('nameInputOverlay').style.display = 'block';
+      document.getElementById('currentScore').textContent = score;
+      document.getElementById('nameInput').value = "";
+      window.gameState = "nameInput";
+    }
+
+    function hideNameInput() {
+      document.getElementById('nameInputOverlay').style.display = 'none';
+      window.gameState = "gameover";
+    }
+
+    function submitName() {
+      const name = document.getElementById('nameInput').value.trim();
+      if (name.length > 0) {
+        window.playerName = name.substring(0, 10); // Limit to 10 chars
+        if (window.addToLeaderboard) {
+          window.addToLeaderboard(window.playerName, window.playerScore);
+        }
+        hideNameInput();
+      }
+    }
+
+    // Expose functions to sketch.js
+    window.showNameInput = showNameInput;
+    window.hideNameInput = hideNameInput;
+  </script>
 </body>
 </html>
