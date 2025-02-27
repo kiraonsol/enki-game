@@ -1,4 +1,4 @@
-// Global variables (remove name input variables)
+// Global variables
 let player;
 let enemies = [];
 let bullets = [];
@@ -175,9 +175,9 @@ function draw() {
       let touchX = touches[0].x / scalingFactor; // Raw touch X position (logical coordinates)
       let touchY = touches[0].y / scalingFactor; // Raw touch Y position (logical coordinates)
 
-      // Offset the player position 20 pixels up from the touch point (no horizontal offset)
+      // Offset the player position 50 pixels up from the touch point (no horizontal offset)
       const offsetX = 0; // No left/right offset
-      const offsetY = -20; // Move 20 pixels up (adjust as needed to be in front of thumb)
+      const offsetY = -50; // Move 50 pixels up (adjust as needed to be in front of thumb)
 
       // Set player position with offset, constrained to game bounds
       player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
