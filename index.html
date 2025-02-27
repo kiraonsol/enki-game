@@ -45,7 +45,7 @@
       padding: 20px;
       border-radius: 10px;
       display: none;
-      z-index: 10;
+      z-index: 1000; /* Ensure overlay is above canvas */
     }
     #nameInputOverlay input {
       width: 200px;
@@ -63,7 +63,7 @@
   <div id="nameInputOverlay">
     <h2>Enter Your Name</h2>
     <p>Score: <span id="currentScore">0</span></p>
-    <input type="text" id="nameInput" maxlength="10" placeholder="Your name (max 10 chars)">
+    <input type="text" id="nameInput" maxlength="10" placeholder="Your name (max 10 chars)" autocomplete="off">
     <button onclick="submitName()">Submit</button>
   </div>
   <script src="sketch.js"></script>
@@ -78,6 +78,7 @@
       document.getElementById('nameInputOverlay').style.display = 'block';
       document.getElementById('currentScore').textContent = score;
       document.getElementById('nameInput').value = "";
+      document.getElementById('nameInput').focus(); // Focus the input field for keyboard
       window.gameState = "nameInput";
     }
 
@@ -96,6 +97,22 @@
         hideNameInput();
       }
     }
+
+    // Prevent touch events on overlay from propagating to canvas
+    document.getElementById('nameInputOverlay').addEventListener('touchstart', (e) => {
+      e.preventDefault(); // Prevent default touch behavior
+      e.stopPropagation(); // Stop event from reaching the canvas
+    });
+
+    document.getElementById('nameInputOverlay').addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.getElementById('nameInputOverlay').addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
 
     // Expose functions to sketch.js
     window.showNameInput = showNameInput;
