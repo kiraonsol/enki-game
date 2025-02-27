@@ -45,7 +45,7 @@
       display: block;
     }
     #nameInputOverlay {
-      position: absolute;
+      position: fixed; /* Use fixed positioning for better WebView handling */
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -55,6 +55,7 @@
       display: none;
       z-index: 1000; /* Ensure overlay is above canvas */
       pointer-events: auto; /* Ensure the overlay receives touch events */
+      touch-action: manipulation; /* Prevent scrolling interference on mobile */
     }
     #nameInputOverlay input {
       width: 200px;
@@ -88,15 +89,20 @@
 
     // Function to show/hide name input overlay
     function showNameInput(score) {
-      document.getElementById('nameInputOverlay').style.display = 'block';
+      const overlay = document.getElementById('nameInputOverlay');
+      overlay.style.display = 'block';
       document.getElementById('currentScore').textContent = score;
-      document.getElementById('nameInput').value = "";
+      const nameInput = document.getElementById('nameInput');
+      nameInput.value = "";
       // Focus the input field for keyboard
       setTimeout(() => {
-        const input = document.getElementById('nameInput');
-        input.focus();
-        // Force keyboard to appear on mobile
-        input.click();
+        console.log('Focusing nameInput');
+        nameInput.focus();
+        // Force keyboard to appear on iOS by simulating a user tap
+        nameInput.click();
+        // Additional iOS WebView workaround: dispatch a touch event
+        const touchEvent = new Event('touchstart', { bubbles: true });
+        nameInput.dispatchEvent(touchEvent);
       }, 100); // Small delay to ensure DOM is ready
       window.gameState = "nameInput";
       window.nameInputVisible = true;
@@ -147,6 +153,16 @@
     // Prevent key events from propagating to the canvas
     document.getElementById('nameInput').addEventListener('keydown', (e) => {
       e.stopPropagation();
+    });
+
+    // Additional iOS WebView handling: Ensure focus on tap
+    document.getElementById('nameInput').addEventListener('touchstart', (e) => {
+      const input = e.target;
+      console.log('nameInput touched, focusing');
+      setTimeout(() => {
+        input.focus();
+        input.click();
+      }, 0);
     });
 
     // Expose functions to sketch.js
