@@ -36,20 +36,8 @@ let gameHeight = 600;
 let scalingFactor;
 let shootTimer = 0;
 
-// Firebase client-side configuration (replace with your actual config from Firebase Console)
-const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project-id.firebaseapp.com",
-  databaseURL: "https://your-project-id.firebaseio.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "your-messaging-sender-id",
-  appId: "your-app-id"
-};
-
-// Initialize Firebase Client SDK
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+// Use the globally exposed Firebase database from index.html
+const database = window.database;
 
 function preload() {
   enkiiLogo = loadImage('enkii-logo.png');
