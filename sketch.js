@@ -107,6 +107,8 @@ function setup() {
 function draw() {
   background(0);
   scale(scalingFactor);
+
+  // Update and draw stars (moving downward) - behind everything else
   for (let i = stars.length - 1; i >= 0; i--) {
     let star = stars[i];
     star.y += star.speed;
@@ -133,21 +135,47 @@ function draw() {
       text("Tap to start", gameWidth / 2, gameHeight - 50);
     }
   } else if (gameState === "playing") {
+    // Handle desktop keyboard controls
+    if (!touches.length > 0) { // Only process keyboard if no touch input
+      if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) { // A key
+        player.moveLeft();
+      }
+      if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) { // D key
+        player.moveRight();
+      }
+      if (keyIsDown(UP_ARROW) || keyIsDown(87)) { // W key
+        player.moveUp();
+      }
+      if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) { // S key
+        player.moveDown();
+      }
+    }
+
+    // Handle mobile touch controls with offset
     if (touches.length > 0) {
-      let touchX = touches[0].x / scalingFactor;
-      let touchY = touches[0].y / scalingFactor;
-      player.x = constrain(touchX, 10, gameWidth - 10);
-      player.y = constrain(touchY, gameHeight / 2, gameHeight - 20);
+      let touchX = touches[0].x / scalingFactor; // Raw touch X position (logical coordinates)
+      let touchY = touches[0].y / scalingFactor; // Raw touch Y position (logical coordinates)
+
+      // Offset the player position slightly below and to the right of the touch point
+      const offsetX = 20; // Move 20 pixels right (adjust as needed)
+      const offsetY = 20; // Move 20 pixels down (adjust as needed)
+
+      // Set player position with offset, constrained to game bounds
+      player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
+      player.y = constrain(touchY + offsetY, gameHeight / 2, gameHeight - 20);
+
+      // Continuous firing while touching
       if (shootTimer <= 0) {
         let playerBullets = bullets.filter(b => b.dir === -1 && b.isPlayer).length;
         if (playerBullets < player.numShips * 2) {
           player.shoot();
-          shootTimer = 10;
+          shootTimer = 10; // Fire every 10 frames (≈0.17s at 60 FPS)
         }
       }
     }
     if (shootTimer > 0) shootTimer--;
 
+    // Update bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
       bullets[i].update();
       if (bullets[i].offscreen()) {
@@ -155,28 +183,30 @@ function draw() {
       }
     }
 
-    if (stage % 5 === 0) {
+    // Update boss and minions (if in boss level)
+    if (stage % 5 === 0) { // Boss level
       if (boss) {
         boss.update();
         boss.shoot();
       }
       for (let i = minions.length - 1; i >= 0; i--) {
         minions[i].update();
-        let shootChance = 0.004;
+        let shootChance = 0.004; // Increased from 0.002 (twice as often)
         if (random() < shootChance) {
           bullets.push(new Bullet(minions[i].x, minions[i].y + 10, 1, false));
         }
       }
-    } else {
+    } else { // Regular level
       for (let enemy of enemies) {
         enemy.update();
-        let shootChance = 0.005 + (stage - 1) * 0.002;
+        let shootChance = 0.005 + (stage - 1) * 0.002; // Linear increase
         if (random() < shootChance) {
           bullets.push(new Bullet(enemy.x, enemy.y + 10, 1, false));
         }
       }
     }
 
+    // Update upgrades
     for (let i = upgrades.length - 1; i >= 0; i--) {
       let upgrade = upgrades[i];
       upgrade.update();
@@ -185,20 +215,21 @@ function draw() {
       }
     }
 
+    // Check collisions
     for (let i = bullets.length - 1; i >= 0; i--) {
       let bullet = bullets[i];
-      if (bullet.dir === -1) {
-        if (stage % 5 === 0) {
-          if (boss && dist(bullet.x, bullet.y, boss.x, boss.y) < 30) {
+      if (bullet.dir === -1) { // Player's bullet (laser)
+        if (stage % 5 === 0) { // Boss level
+          if (boss && dist(bullet.x, bullet.y, boss.x, boss.y) < 30) { // Larger hitbox for boss
             boss.health--;
             bullets.splice(i, 1);
             if (boss.health <= 0) {
-              let bossX = boss.x;
-              let bossY = boss.y;
+              let bossX = boss.x; // Store boss position before nullifying
+              let bossY = boss.y; // Store boss position before nullifying
               explosions.push(new Explosion(bossX, bossY));
-              boss = null;
-              minions = [];
-              stage++;
+              boss = null; // Boss defeated
+              minions = []; // Clear minions
+              stage++; // Move to next regular stage
               playExplosionSound();
               if (random() < 0.5) {
                 upgrades.push(new Upgrade(bossX, bossY, floor(random(2))));
@@ -207,14 +238,14 @@ function draw() {
           }
           for (let j = minions.length - 1; j >= 0; j--) {
             let minion = minions[j];
-            if (dist(bullet.x, bullet.y, minion.x, minion.y) < 30) {
-              minion.health--;
+            if (dist(bullet.x, bullet.y, minion.x, minion.y) < 30) { // Larger hitbox for minions (match Starlink size)
+              minion.health--; // Decrease minion health
               if (minion.health <= 0) {
                 explosions.push(new Explosion(minion.x, minion.y));
                 minions.splice(j, 1);
               }
               bullets.splice(i, 1);
-              player.score += 50 * (1 + (stage - 1) * 0.1);
+              player.score += 50 * (1 + (stage - 1) * 0.1); // Lower score for minions
               playExplosionSound();
               if (random() < 0.1) {
                 upgrades.push(new Upgrade(minion.x, minion.y, floor(random(2))));
@@ -222,20 +253,20 @@ function draw() {
               break;
             }
           }
-        } else {
+        } else { // Regular level
           for (let j = enemies.length - 1; j >= 0; j--) {
             let enemy = enemies[j];
-            if (dist(bullet.x, bullet.y, enemy.x, enemy.y) < 25) {
-              enemy.health--;
+            if (dist(bullet.x, bullet.y, enemy.x, enemy.y) < 25) { // Adjusted hitbox for larger enemy sprites
+              enemy.health--; // Decrease enemy health
               if (enemy.health <= 0) {
                 explosions.push(new Explosion(enemy.x, enemy.y));
                 if (enemy.type === 1 && enemy.captured) {
-                  player.numShips = 2;
+                  player.numShips = 2; // Dual fighter on boss defeat
                 }
                 enemies.splice(j, 1);
               }
               bullets.splice(i, 1);
-              player.score += 100 * (1 + (stage - 1) * 0.1);
+              player.score += 100 * (1 + (stage - 1) * 0.1); // Score scales with stage
               playExplosionSound();
               if (random() < 0.05) {
                 upgrades.push(new Upgrade(enemy.x, enemy.y, floor(random(2))));
@@ -244,35 +275,44 @@ function draw() {
             }
           }
         }
-      } else {
-        let targetX = player.x;
-        let targetY = player.y;
-        let hitRadius = player.numShips === 1 ? 10 : 25;
+      } else { // Enemy's, boss's, or minion's bullet
+        let targetX = player.x; // Default to player position
+        let targetY = player.y; // Default to player position
+        let hitRadius = player.numShips === 1 ? 10 : 25; // Player hitbox based on ship count
+
         if (stage % 5 === 0 && boss) {
-          if (bullet.isPlayer === false) {
-            if (bullet.isBoss) {
-              if (dist(bullet.x, bullet.y, targetX, targetY) < 30) {
+          // During boss level, check if the bullet should hit the player or boss
+          if (bullet.isPlayer === false) { // Enemy/minion/boss bullet
+            // Damage the player
+            if (bullet.isBoss) { // Larger hitbox for boss projectiles (20x60)
+              if (dist(bullet.x, bullet.y, targetX, targetY) < 30) { // Increased hitRadius for boss beams (match visual size)
                 player.lives--;
-                if (player.numShips === 2) player.numShips = 1;
+                if (player.numShips === 2) {
+                  player.numShips = 1; // Lose dual status
+                }
                 bullets.splice(i, 1);
                 playHitSound();
                 if (player.lives <= 0) {
-                  gameState = "nameInput";
+                  gameState = "nameInput"; // Switch to name input state on game over
                 } else {
+                  // Respawn player
                   player.x = gameWidth / 2;
                   player.y = gameHeight - 20;
                 }
                 break;
               }
-            } else {
+            } else { // Minion or regular enemy bullet (10x30)
               if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius) {
                 player.lives--;
-                if (player.numShips === 2) player.numShips = 1;
+                if (player.numShips === 2) {
+                  player.numShips = 1; // Lose dual status
+                }
                 bullets.splice(i, 1);
                 playHitSound();
                 if (player.lives <= 0) {
-                  gameState = "nameInput";
+                  gameState = "nameInput"; // Switch to name input state on game over
                 } else {
+                  // Respawn player
                   player.x = gameWidth / 2;
                   player.y = gameHeight - 20;
                 }
@@ -281,14 +321,18 @@ function draw() {
             }
           }
         } else {
+          // In non-boss levels, enemy bullets damage the player
           if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius) {
             player.lives--;
-            if (player.numShips === 2) player.numShips = 1;
+            if (player.numShips === 2) {
+              player.numShips = 1; // Lose dual status
+            }
             bullets.splice(i, 1);
             playHitSound();
             if (player.lives <= 0) {
-              gameState = "nameInput";
+              gameState = "nameInput"; // Switch to name input state on game over
             } else {
+              // Respawn player
               player.x = gameWidth / 2;
               player.y = gameHeight - 20;
             }
@@ -298,6 +342,7 @@ function draw() {
       }
     }
 
+    // Check for upgrade collection
     for (let i = upgrades.length - 1; i >= 0; i--) {
       let upgrade = upgrades[i];
       if (dist(player.x, player.y, upgrade.x, upgrade.y) < 30) {
@@ -307,21 +352,35 @@ function draw() {
       }
     }
 
+    // Draw game elements
     player.draw();
-    if (stage % 5 === 0) {
-      if (boss) boss.draw();
-      for (let minion of minions) minion.draw();
+    if (stage % 5 === 0) { // Boss level
+      if (boss) {
+        boss.draw();
+      }
+      for (let minion of minions) {
+        minion.draw();
+      }
     } else {
-      for (let enemy of enemies) enemy.draw();
+      for (let enemy of enemies) {
+        enemy.draw();
+      }
     }
-    for (let bullet of bullets) bullet.draw();
-    for (let upgrade of upgrades) upgrade.draw();
+    for (let bullet of bullets) {
+      bullet.draw();
+    }
+    for (let upgrade of upgrades) {
+      upgrade.draw();
+    }
     for (let i = explosions.length - 1; i >= 0; i--) {
       explosions[i].update();
       explosions[i].draw();
-      if (explosions[i].done) explosions.splice(i, 1);
+      if (explosions[i].done) {
+        explosions.splice(i, 1);
+      }
     }
 
+    // Draw UI
     fill(255);
     textSize(16 / scalingFactor);
     textAlign(LEFT);
@@ -332,7 +391,8 @@ function draw() {
       text("Boss Health: " + boss.health, 10, 80);
     }
 
-    if (stage % 5 === 0) {
+    // Next stage or boss/minions defeated transition
+    if (stage % 5 === 0) { // Boss level
       if (!boss && minions.length === 0) {
         stage++;
         createEnemies(stage);
@@ -384,6 +444,33 @@ function touchStarted() {
     }
   }
   return false;
+}
+
+function keyPressed() {
+  if (!touches.length > 0) { // Only process keyboard if no touch input
+    if (gameState === "start" && key !== " ") {
+      startGame();
+    } else if (gameState === "playing" && key === " ") {
+      let playerBullets = bullets.filter(b => b.dir === -1 && b.isPlayer).length;
+      if (playerBullets < player.numShips * 2) {
+        player.shoot();
+      }
+    } else if (gameState === "gameover") {
+      startGame();
+    } else if (gameState === "nameInput") {
+      if (keyCode === ENTER) {
+        if (playerName.trim().length > 0) {
+          addToLeaderboard(playerName.trim(), player.score);
+          saveLeaderboard();
+          gameState = "gameover";
+        }
+      } else if (keyCode === BACKSPACE) {
+        playerName = playerName.slice(0, -1);
+      } else if (key.length === 1 && playerName.length < 10) { // Limit name length
+        playerName += key;
+      }
+    }
+  }
 }
 
 function startGame() {
@@ -470,6 +557,26 @@ class Player {
       this.tripleShotTimer--;
       if (this.tripleShotTimer <= 0) this.tripleShot = false;
     }
+  }
+
+  moveLeft() {
+    this.x -= this.speed;
+    if (this.x < 10) this.x = 10;
+  }
+
+  moveRight() {
+    this.x += this.speed;
+    if (this.x > gameWidth - 10) this.x = gameWidth - 10;
+  }
+
+  moveUp() {
+    this.y -= this.speed;
+    if (this.y < gameHeight / 2) this.y = gameHeight / 2;
+  }
+
+  moveDown() {
+    this.y += this.speed;
+    if (this.y > gameHeight - 20) this.y = gameHeight - 20;
   }
 
   shoot() {
