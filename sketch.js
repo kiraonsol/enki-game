@@ -27,7 +27,7 @@ let redSmallFrame, greenSmallFrame;
 let redMicroFrame, greenMicroFrame;
 let heartSpinSheet;
 let firepowerSheet;
-let leaderboard = []; // Explicitly initialize as an array
+let _leaderboard = []; // Private leaderboard array
 let playerName = "";
 let boss = null;
 let minions = []; // Ensure minions is always an array
@@ -38,6 +38,25 @@ let shootTimer = 0;
 
 // Use the globally exposed Firebase database from index.html
 let database = window.database;
+
+// Getter and setter for leaderboard to prevent undefined state
+function getLeaderboard() {
+  if (!Array.isArray(_leaderboard)) {
+    console.error('Leaderboard is not an array, resetting:', _leaderboard);
+    _leaderboard = [];
+  }
+  return _leaderboard;
+}
+
+function setLeaderboard(newValue) {
+  if (!Array.isArray(newValue)) {
+    console.error('Attempted to set leaderboard to non-array value:', newValue);
+    _leaderboard = [];
+  } else {
+    _leaderboard = newValue;
+    console.log('Leaderboard updated:', _leaderboard);
+  }
+}
 
 function preload() {
   enkiiLogo = loadImage('enkii-logo.png');
@@ -108,7 +127,7 @@ function setup() {
     loadLeaderboard();
   } else {
     console.error('Firebase not initialized, leaderboard will not load from server');
-    leaderboard = []; // Ensure leaderboard is always an array
+    setLeaderboard([]); // Ensure leaderboard is an array
   }
   selectEnemyFrames();
 }
@@ -472,14 +491,10 @@ function draw() {
     text("Your Score: " + player.score, gameWidth / 2, gameHeight / 2 - 100);
     text("Leaderboard:", gameWidth / 2, gameHeight / 2 - 50);
 
-    // Defensive check for leaderboard
-    if (Array.isArray(leaderboard)) {
-      for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
-        text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
-      }
-    } else {
-      console.error('leaderboard is not an array:', leaderboard);
-      text("Leaderboard unavailable", gameWidth / 2, gameHeight / 2); // Fallback message
+    // Defensive check for leaderboard using getter
+    const leaderboard = getLeaderboard();
+    for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
+      text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
     }
     text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120);
   }
@@ -899,41 +914,53 @@ function playPowerUpSound() {
 
 // Leaderboard functions with Firebase (required for online storage)
 function loadLeaderboard() {
-  if (!window.database) {
-    console.error('Firebase database not initialized, leaderboard will not load from server');
-    leaderboard = []; // Ensure leaderboard is always an array
-    alert('Failed to load leaderboard from server. Please check your internet connection or contact support.');
-    return;
-  }
-  window.database.ref('leaderboard').once('value', snapshot => {
-    leaderboard = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
-    console.log('Loaded leaderboard from Firebase:', leaderboard);
-  }, error => {
-    console.error('Error loading leaderboard from Firebase:', error);
-    leaderboard = []; // Ensure leaderboard is always an array
-    alert('Error loading leaderboard from server. Please try again or contact support.');
+  return new Promise((resolve, reject) => {
+    if (!window.database) {
+      console.error('Firebase database not initialized, leaderboard will not load from server');
+      setLeaderboard([]);
+      alert('Failed to load leaderboard from server. Please check your internet connection or contact support.');
+      resolve();
+      return;
+    }
+    window.database.ref('leaderboard').once('value', snapshot => {
+      const data = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
+      setLeaderboard(data);
+      resolve();
+    }, error => {
+      console.error('Error loading leaderboard from Firebase:', error);
+      setLeaderboard([]);
+      alert('Error loading leaderboard from server. Please try again or contact support.');
+      resolve();
+    });
   });
 }
 
 function addToLeaderboard(name, score) {
-  if (!window.database) {
-    console.error('Firebase database not initialized, scores cannot be saved to server');
-    alert('Unable to save score to server. Please check your internet connection or contact support.');
-    return;
-  }
-  console.log('Adding to leaderboard:', { name, score });
-  window.database.ref('leaderboard').push({ name, score }, error => {
-    if (error) {
-      console.error('Error pushing to Firebase:', error);
-      alert('Error saving score to server. Please try again or contact support.');
-    } else {
-      window.database.ref('leaderboard').once('value', snapshot => {
-        leaderboard = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
-        console.log('Updated leaderboard from Firebase:', leaderboard);
-      }, error => {
-        console.error('Error updating leaderboard from Firebase:', error);
-        alert('Error saving score to server. Please try again or contact support.');
-      });
+  return new Promise((resolve, reject) => {
+    if (!window.database) {
+      console.error('Firebase database not initialized, scores cannot be saved to server');
+      alert('Unable to save score to server. Please check your internet connection or contact support.');
+      resolve();
+      return;
     }
+    console.log('Adding to leaderboard:', { name, score });
+    window.database.ref('leaderboard').push({ name, score }, error => {
+      if (error) {
+        console.error('Error pushing to Firebase:', error);
+        alert('Error saving score to server. Please try again or contact support.');
+        resolve();
+      } else {
+        window.database.ref('leaderboard').once('value', snapshot => {
+          const data = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
+          setLeaderboard(data);
+          resolve();
+        }, error => {
+          console.error('Error updating leaderboard from Firebase:', error);
+          setLeaderboard([]);
+          alert('Error saving score to server. Please try again or contact support.');
+          resolve();
+        });
+      }
+    });
   });
 }
