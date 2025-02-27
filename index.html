@@ -114,12 +114,12 @@
       window.nameInputVisible = false;
     }
 
-    function submitName() {
+    async function submitName() {
       const name = document.getElementById('nameInput').value.trim();
       if (name.length > 0) {
         window.playerName = name.substring(0, 10); // Limit to 10 chars
         if (window.addToLeaderboard) {
-          window.addToLeaderboard(window.playerName, window.playerScore);
+          await window.addToLeaderboard(window.playerName, window.playerScore);
         }
         hideNameInput();
       }
