@@ -2,10 +2,10 @@
 <html style="background-color: black;">
 <head>
   <title>ENKI</title>
-  <script type="module">
-    // Import the functions you need from the SDKs you need
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-    import { getDatabase } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+  <!-- Load Firebase SDK via CDN (non-module) -->
+  <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
+  <script>
     // Your web app's Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBlTVNMSh1hCjzLLu5SV4XJZRfyOZgLMVc",
@@ -17,11 +17,20 @@
       appId: "1:902253472756:web:eea22ee4ee0021ad2fe7a1"
     };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    window.database = getDatabase(app); // Expose database globally for sketch.js
-    window.firebaseReady = true; // Signal that Firebase is ready
-    console.log('Firebase initialized, database ready:', window.database);
+    // Initialize Firebase with error handling
+    let firebaseInitialized = false;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      window.database = firebase.database(); // Expose database globally for sketch.js
+      firebaseInitialized = true;
+      window.firebaseReady = true; // Signal that Firebase is ready
+      console.log('Firebase initialized successfully, database ready:', window.database);
+    } catch (error) {
+      console.error('Firebase initialization failed:', error);
+      window.firebaseReady = false;
+      window.database = null; // Ensure database is null if initialization fails
+      alert('Failed to initialize Firebase. Leaderboard and score saving may not work. Please check your internet connection or contact support.');
+    }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
@@ -71,6 +80,7 @@
     window.gameState = "start";
     window.playerScore = 0;
     window.playerName = "";
+    window.nameInputVisible = false; // Track overlay visibility
 
     // Function to show/hide name input overlay
     function showNameInput(score) {
@@ -79,11 +89,13 @@
       document.getElementById('nameInput').value = "";
       document.getElementById('nameInput').focus(); // Focus the input field for keyboard
       window.gameState = "nameInput";
+      window.nameInputVisible = true;
     }
 
     function hideNameInput() {
       document.getElementById('nameInputOverlay').style.display = 'none';
       window.gameState = "gameover";
+      window.nameInputVisible = false;
     }
 
     function submitName() {
@@ -110,6 +122,11 @@
 
     document.getElementById('nameInputOverlay').addEventListener('touchend', (e) => {
       e.preventDefault();
+      e.stopPropagation();
+    });
+
+    // Prevent key events from propagating to the canvas
+    document.getElementById('nameInput').addEventListener('keydown', (e) => {
       e.stopPropagation();
     });
 
