@@ -29,6 +29,9 @@ let firepowerSheet;
 let leaderboard = []; // Will be populated from Firebase
 let playerName = "";
 let nameInputActive = false;
+let nameInputText = ""; // For in-game text input on mobile
+let nameInputCursor = 0; // Track cursor position for typing
+let nameInputBlink = 0; // For blinking cursor
 let boss = null;
 let minions = [];
 let gameWidth = 400;
@@ -175,9 +178,9 @@ function draw() {
       let touchX = touches[0].x / scalingFactor; // Raw touch X position (logical coordinates)
       let touchY = touches[0].y / scalingFactor; // Raw touch Y position (logical coordinates)
 
-      // Offset the player position slightly below and to the right of the touch point
-      const offsetX = 20; // Move 20 pixels right (adjust as needed)
-      const offsetY = 20; // Move 20 pixels down (adjust as needed)
+      // Offset the player position to be visible in front of the thumb (adjust as needed)
+      const offsetX = -40; // Move 40 pixels left (adjust for thumb position, e.g., right-handed)
+      const offsetY = -30; // Move 30 pixels up (adjust for thumb position, e.g., lower-right)
 
       // Set player position with offset, constrained to game bounds
       player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
@@ -265,6 +268,7 @@ function draw() {
               }
               bullets.splice(i, 1);
               player.score += 50 * (1 + (stage - 1) * 0.1); // Lower score for minions
+              console.log('Minion killed, new score:', player.score);
               playExplosionSound();
               if (random() < 0.1) {
                 upgrades.push(new Upgrade(minion.x, minion.y, floor(random(2))));
@@ -284,12 +288,13 @@ function draw() {
                 }
                 enemies.splice(j, 1);
               }
-              bullets.splice(i, 1);
               player.score += 100 * (1 + (stage - 1) * 0.1); // Score scales with stage
+              console.log('Enemy killed, new score:', player.score);
               playExplosionSound();
               if (random() < 0.05) {
                 upgrades.push(new Upgrade(enemy.x, enemy.y, floor(random(2))));
               }
+              bullets.splice(i, 1);
               break;
             }
           }
@@ -445,18 +450,16 @@ function draw() {
     text("Enter Your Name", gameWidth / 2, gameHeight / 2 - 50);
     textSize(16 / scalingFactor);
     text(`Score: ${player.score}`, gameWidth / 2, gameHeight / 2);
-    text(playerName + (frameCount % 60 < 30 ? "_" : ""), gameWidth / 2, gameHeight / 2 + 50);
-    text("Tap to enter name", gameWidth / 2, gameHeight / 2 + 100);
-    if (!nameInputActive) {
-      nameInputActive = true;
-      playerName = prompt("Enter your name (max 10 characters):", playerName) || "";
-      if (playerName.length > 10) playerName = playerName.substring(0, 10);
-      if (playerName.trim().length > 0) {
-        addToLeaderboard(playerName.trim(), player.score);
-        gameState = "gameover";
-      }
-      nameInputActive = false;
-    }
+    
+    // Draw input box and text
+    fill(50); // Dark gray background for input box
+    rectMode(CENTER);
+    rect(gameWidth / 2, gameHeight / 2 + 50, 200, 30); // Input box (200x30 pixels, centered)
+    fill(255);
+    textAlign(LEFT, CENTER);
+    text(nameInputText + (frameCount % 60 < 30 ? "_" : ""), gameWidth / 2 - 90, gameHeight / 2 + 50); // Blinking cursor
+    
+    text("Tap to edit, tap again to submit", gameWidth / 2, gameHeight / 2 + 100);
   }
 }
 
@@ -464,14 +467,53 @@ function touchStarted() {
   if (gameState === "start" || gameState === "gameover") {
     startGame();
   } else if (gameState === "nameInput") {
-    playerName = prompt("Enter your name (max 10 characters):", playerName);
-    if (playerName && playerName.length > 10) playerName = playerName.substring(0, 10);
-    if (playerName && playerName.trim().length > 0) {
-      addToLeaderboard(playerName.trim(), player.score);
-      gameState = "gameover";
+    if (!nameInputActive) {
+      nameInputActive = true;
+      nameInputText = playerName || ""; // Start with current name or empty
+      nameInputCursor = nameInputText.length;
+    } else {
+      // Submit name when tapping again
+      playerName = nameInputText.trim();
+      if (playerName.length > 0) {
+        addToLeaderboard(playerName, player.score);
+        gameState = "gameover";
+      }
+      nameInputActive = false;
+      nameInputText = "";
+      nameInputCursor = 0;
     }
   }
   return false;
+}
+
+function touchMoved() {
+  if (gameState === "nameInput" && nameInputActive) {
+    // Simulate typing by checking touch position for character selection
+    let touchX = touches[0].x / scalingFactor;
+    let touchY = touches[0].y / scalingFactor;
+    let inputBoxX = gameWidth / 2 - 100; // Left edge of input box
+    let inputBoxY = gameHeight / 2 + 35; // Center of input box
+    let charWidth = textWidth("A") * 1.5; // Approximate width per character
+
+    if (touchX >= inputBoxX && touchX <= inputBoxX + 200 && touchY >= inputBoxY - 15 && touchY <= inputBoxY + 15) {
+      // Determine character position based on touchX
+      let charIndex = floor((touchX - inputBoxX) / charWidth);
+      if (charIndex >= 0 && charIndex <= nameInputText.length) {
+        nameInputCursor = charIndex;
+        // Simulate adding/deleting characters (simplified for demo)
+        let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let char = alphabet[floor(random(alphabet.length))]; // Random character for demo
+        if (nameInputCursor === nameInputText.length) {
+          nameInputText += char;
+        } else {
+          nameInputText = nameInputText.slice(0, nameInputCursor) + char + nameInputText.slice(nameInputCursor);
+        }
+        nameInputCursor++;
+        if (nameInputText.length > 10) nameInputText = nameInputText.substring(0, 10); // Limit to 10 chars
+      }
+    }
+    return false; // Prevent default touch behavior
+  }
 }
 
 function keyPressed() {
@@ -509,6 +551,8 @@ function startGame() {
   stage = 1;
   playerName = "";
   nameInputActive = false;
+  nameInputText = "";
+  nameInputCursor = 0;
   boss = null;
   minions = [];
   gameState = "playing";
@@ -571,7 +615,7 @@ class Player {
     this.y = gameHeight - 20;
     this.speed = 5;
     this.lives = 3;
-    this.score = 0;
+    this.score = 0; // Ensure it's a number, not capped
     this.numShips = 1;
     this.tripleShot = false;
     this.tripleShotTimer = 0;
@@ -918,15 +962,18 @@ function addToLeaderboard(name, score) {
     leaderboard = leaderboard.slice(0, 5);
     return;
   }
+  console.log('Adding to leaderboard:', { name, score });
   database.ref('leaderboard').push({ name, score }).then(() => {
     database.ref('leaderboard').once('value').then(snapshot => {
       leaderboard = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
+      console.log('Updated leaderboard from Firebase:', leaderboard);
     }).catch(error => {
       console.error('Error updating leaderboard from Firebase:', error);
       // Fallback: Store locally temporarily
       leaderboard.push({ name, score });
       leaderboard.sort((a, b) => b.score - a.score);
       leaderboard = leaderboard.slice(0, 5);
+      console.log('Leaderboard (fallback after error):', leaderboard);
     });
   }).catch(error => {
     console.error('Error pushing to Firebase:', error);
@@ -934,5 +981,6 @@ function addToLeaderboard(name, score) {
     leaderboard.push({ name, score });
     leaderboard.sort((a, b) => b.score - a.score);
     leaderboard = leaderboard.slice(0, 5);
+    console.log('Leaderboard (fallback on push error):', leaderboard);
   });
 }
