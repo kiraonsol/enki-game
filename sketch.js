@@ -27,7 +27,7 @@ let redSmallFrame, greenSmallFrame;
 let redMicroFrame, greenMicroFrame;
 let heartSpinSheet;
 let firepowerSheet;
-let leaderboard = []; // Will be populated from Firebase
+let leaderboard = []; // Explicitly initialize as an array
 let playerName = "";
 let boss = null;
 let minions = []; // Ensure minions is always an array
@@ -108,7 +108,7 @@ function setup() {
     loadLeaderboard();
   } else {
     console.error('Firebase not initialized, leaderboard will not load from server');
-    leaderboard = []; // Empty leaderboard if Firebase fails
+    leaderboard = []; // Ensure leaderboard is always an array
   }
   selectEnemyFrames();
 }
@@ -471,8 +471,15 @@ function draw() {
     textSize(16 / scalingFactor);
     text("Your Score: " + player.score, gameWidth / 2, gameHeight / 2 - 100);
     text("Leaderboard:", gameWidth / 2, gameHeight / 2 - 50);
-    for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
-      text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
+
+    // Defensive check for leaderboard
+    if (Array.isArray(leaderboard)) {
+      for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
+        text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
+      }
+    } else {
+      console.error('leaderboard is not an array:', leaderboard);
+      text("Leaderboard unavailable", gameWidth / 2, gameHeight / 2); // Fallback message
     }
     text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120);
   }
@@ -894,7 +901,7 @@ function playPowerUpSound() {
 function loadLeaderboard() {
   if (!window.database) {
     console.error('Firebase database not initialized, leaderboard will not load from server');
-    leaderboard = []; // Empty until Firebase initializes or fails permanently
+    leaderboard = []; // Ensure leaderboard is always an array
     alert('Failed to load leaderboard from server. Please check your internet connection or contact support.');
     return;
   }
@@ -903,7 +910,7 @@ function loadLeaderboard() {
     console.log('Loaded leaderboard from Firebase:', leaderboard);
   }, error => {
     console.error('Error loading leaderboard from Firebase:', error);
-    leaderboard = []; // Empty if Firebase fails
+    leaderboard = []; // Ensure leaderboard is always an array
     alert('Error loading leaderboard from server. Please try again or contact support.');
   });
 }
