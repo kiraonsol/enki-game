@@ -1,4 +1,4 @@
-// Global variables
+// Global variables (remove name input variables)
 let player;
 let enemies = [];
 let bullets = [];
@@ -28,10 +28,6 @@ let heartSpinSheet;
 let firepowerSheet;
 let leaderboard = []; // Will be populated from Firebase
 let playerName = "";
-let nameInputActive = false;
-let nameInputText = ""; // For in-game text input on mobile
-let nameInputCursor = 0; // Track cursor position for typing
-let nameInputBlink = 0; // For blinking cursor
 let boss = null;
 let minions = [];
 let gameWidth = 400;
@@ -179,9 +175,9 @@ function draw() {
       let touchX = touches[0].x / scalingFactor; // Raw touch X position (logical coordinates)
       let touchY = touches[0].y / scalingFactor; // Raw touch Y position (logical coordinates)
 
-      // Offset the player position 80 pixels up from the touch point (no horizontal offset)
+      // Offset the player position 20 pixels up from the touch point (no horizontal offset)
       const offsetX = 0; // No left/right offset
-      const offsetY = 80; // Move 80 pixels up (adjust as needed to be in front of thumb)
+      const offsetY = -20; // Move 20 pixels up (adjust as needed to be in front of thumb)
 
       // Set player position with offset, constrained to game bounds
       player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
@@ -320,8 +316,8 @@ function draw() {
                 if (player.lives <= 0) {
                   gameState = "gameover"; // Show "GAME OVER" first
                   setTimeout(() => {
-                    gameState = "nameInput"; // Transition to name input after 2 seconds
-                  }, 2000);
+                    window.showNameInput(player.score); // Use HTML overlay for name input
+                  }, 2000); // Transition to name input after 2 seconds
                 } else {
                   // Respawn player
                   player.x = gameWidth / 2;
@@ -340,8 +336,8 @@ function draw() {
                 if (player.lives <= 0) {
                   gameState = "gameover"; // Show "GAME OVER" first
                   setTimeout(() => {
-                    gameState = "nameInput"; // Transition to name input after 2 seconds
-                  }, 2000);
+                    window.showNameInput(player.score); // Use HTML overlay for name input
+                  }, 2000); // Transition to name input after 2 seconds
                 } else {
                   // Respawn player
                   player.x = gameWidth / 2;
@@ -363,8 +359,8 @@ function draw() {
             if (player.lives <= 0) {
               gameState = "gameover"; // Show "GAME OVER" first
               setTimeout(() => {
-                gameState = "nameInput"; // Transition to name input after 2 seconds
-              }, 2000);
+                window.showNameInput(player.score); // Use HTML overlay for name input
+              }, 2000); // Transition to name input after 2 seconds
             } else {
               // Respawn player
               player.x = gameWidth / 2;
@@ -453,106 +449,14 @@ function draw() {
       text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
     }
     text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120);
-  } else if (gameState === "nameInput") {
-    fill(255);
-    textSize(32 / scalingFactor);
-    textAlign(CENTER);
-    text("Enter Your Name", gameWidth / 2, gameHeight / 2 - 50);
-    textSize(16 / scalingFactor);
-    text(`Score: ${player.score}`, gameWidth / 2, gameHeight / 2);
-
-    if (isTelegram) {
-      // Use Telegram WebApp for input (simplified; requires actual Telegram WebApp integration)
-      text("Tap to open Telegram input (not implemented here)", gameWidth / 2, gameHeight / 2 + 100);
-      // For a real implementation, use Telegram.WebApp.showPopup or custom HTML input
-      /*
-      if (!nameInputActive) {
-        Telegram.WebApp.showPopup({
-          title: "Enter Your Name",
-          message: `Score: ${player.score}`,
-          input_field_placeholder: "Your name (max 10 chars)",
-          buttons: [{ text: "Submit", type: "ok" }]
-        }, (data) => {
-          if (data.text && data.text.trim().length > 0) {
-            playerName = data.text.trim().substring(0, 10);
-            addToLeaderboard(playerName, player.score);
-            gameState = "gameover";
-          }
-        });
-        nameInputActive = true;
-      }
-      */
-    } else {
-      // In-game input for non-Telegram (mobile/desktop browsers)
-      // Draw input box and text
-      fill(50); // Dark gray background for input box
-      rectMode(CENTER);
-      rect(gameWidth / 2, gameHeight / 2 + 50, 200, 30); // Input box (200x30 pixels, centered)
-      fill(255);
-      textAlign(LEFT, CENTER);
-      text(nameInputText + (frameCount % 60 < 30 ? "_" : ""), gameWidth / 2 - 90, gameHeight / 2 + 50); // Blinking cursor
-      text("Tap to edit, tap again to submit", gameWidth / 2, gameHeight / 2 + 100);
-    }
   }
 }
 
 function touchStarted() {
   if (gameState === "start" || gameState === "gameover") {
     startGame();
-  } else if (gameState === "nameInput") {
-    if (isTelegram) {
-      // Use Telegram.WebApp for input (requires full Telegram WebApp setup)
-      console.log('Telegram input triggered (implement WebApp.showPopup or similar)');
-      // Placeholder: For real implementation, use Telegram.WebApp.showPopup as above
-    } else {
-      if (!nameInputActive) {
-        nameInputActive = true;
-        nameInputText = playerName || ""; // Start with current name or empty
-        nameInputCursor = nameInputText.length;
-      } else {
-        // Submit name when tapping again
-        playerName = nameInputText.trim();
-        if (playerName.length > 0) {
-          addToLeaderboard(playerName, player.score);
-          gameState = "gameover";
-        }
-        nameInputActive = false;
-        nameInputText = "";
-        nameInputCursor = 0;
-      }
-    }
   }
   return false;
-}
-
-function touchMoved() {
-  if (gameState === "nameInput" && nameInputActive && !isTelegram) {
-    // Simulate typing by checking touch position for character selection
-    let touchX = touches[0].x / scalingFactor;
-    let touchY = touches[0].y / scalingFactor;
-    let inputBoxX = gameWidth / 2 - 100; // Left edge of input box
-    let inputBoxY = gameHeight / 2 + 35; // Center of input box
-    let charWidth = textWidth("A") * 1.5; // Approximate width per character
-
-    if (touchX >= inputBoxX && touchX <= inputBoxX + 200 && touchY >= inputBoxY - 15 && touchY <= inputBoxY + 15) {
-      // Determine character position based on touchX
-      let charIndex = floor((touchX - inputBoxX) / charWidth);
-      if (charIndex >= 0 && charIndex <= nameInputText.length) {
-        nameInputCursor = charIndex;
-        // Simulate adding/deleting characters (simplified for demo)
-        let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let char = alphabet[floor(random(alphabet.length))]; // Random character for demo
-        if (nameInputCursor === nameInputText.length) {
-          nameInputText += char;
-        } else {
-          nameInputText = nameInputText.slice(0, nameInputCursor) + char + nameInputText.slice(nameInputCursor);
-        }
-        nameInputCursor++;
-        if (nameInputText.length > 10) nameInputText = nameInputText.substring(0, 10); // Limit to 10 chars
-      }
-    }
-    return false; // Prevent default touch behavior
-  }
 }
 
 function keyPressed() {
@@ -566,17 +470,6 @@ function keyPressed() {
       }
     } else if (gameState === "gameover") {
       startGame();
-    } else if (gameState === "nameInput") {
-      if (keyCode === ENTER) {
-        if (playerName.trim().length > 0) {
-          addToLeaderboard(playerName.trim(), player.score);
-          gameState = "gameover";
-        }
-      } else if (keyCode === BACKSPACE) {
-        playerName = playerName.slice(0, -1);
-      } else if (key.length === 1 && playerName.length < 10) { // Limit name length
-        playerName += key;
-      }
     }
   }
 }
@@ -589,9 +482,6 @@ function startGame() {
   upgrades = [];
   stage = 1;
   playerName = "";
-  nameInputActive = false;
-  nameInputText = "";
-  nameInputCursor = 0;
   boss = null;
   minions = [];
   gameState = "playing";
@@ -737,8 +627,8 @@ class Enemy {
         } else {
           gameState = "gameover"; // Show "GAME OVER" first
           setTimeout(() => {
-            gameState = "nameInput"; // Transition to name input after 2 seconds
-          }, 2000);
+            window.showNameInput(player.score); // Use HTML overlay for name input
+          }, 2000); // Transition to name input after 2 seconds
         }
         playHitSound();
       }
