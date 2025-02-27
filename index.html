@@ -54,16 +54,20 @@
       border-radius: 10px;
       display: none;
       z-index: 1000; /* Ensure overlay is above canvas */
+      pointer-events: auto; /* Ensure the overlay receives touch events */
     }
     #nameInputOverlay input {
       width: 200px;
       padding: 5px;
       font-size: 16px;
       margin-bottom: 10px;
+      pointer-events: auto; /* Ensure the input receives touch events */
+      touch-action: auto; /* Allow default touch actions on input */
     }
     #nameInputOverlay button {
       padding: 5px 15px;
       font-size: 16px;
+      pointer-events: auto; /* Ensure the button receives touch events */
     }
   </style>
 </head>
@@ -87,7 +91,13 @@
       document.getElementById('nameInputOverlay').style.display = 'block';
       document.getElementById('currentScore').textContent = score;
       document.getElementById('nameInput').value = "";
-      document.getElementById('nameInput').focus(); // Focus the input field for keyboard
+      // Focus the input field for keyboard
+      setTimeout(() => {
+        const input = document.getElementById('nameInput');
+        input.focus();
+        // Force keyboard to appear on mobile
+        input.click();
+      }, 100); // Small delay to ensure DOM is ready
       window.gameState = "nameInput";
       window.nameInputVisible = true;
     }
@@ -109,9 +119,14 @@
       }
     }
 
-    // Prevent touch events on overlay from propagating to canvas
+    // Prevent touch events on overlay from propagating to canvas, but allow input focus
     document.getElementById('nameInputOverlay').addEventListener('touchstart', (e) => {
-      e.preventDefault(); // Prevent default touch behavior
+      const target = e.target;
+      // Allow the input and button to handle their own touch events
+      if (target.id === 'nameInput' || target.tagName === 'BUTTON') {
+        return; // Let the input or button handle the event
+      }
+      e.preventDefault(); // Prevent default for other elements in the overlay
       e.stopPropagation(); // Stop event from reaching the canvas
     });
 
@@ -121,6 +136,10 @@
     });
 
     document.getElementById('nameInputOverlay').addEventListener('touchend', (e) => {
+      const target = e.target;
+      if (target.id === 'nameInput' || target.tagName === 'BUTTON') {
+        return; // Let the input or button handle the event
+      }
       e.preventDefault();
       e.stopPropagation();
     });
