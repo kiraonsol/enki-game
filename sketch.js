@@ -35,8 +35,8 @@ let gameHeight = 600;
 let scalingFactor;
 let shootTimer = 0;
 
-// Use the globally exposed Firebase database from index.html, with a fallback
-const database = window.database || null;
+// Use the globally exposed Firebase database from index.html
+let database = window.database;
 
 function preload() {
   enkiiLogo = loadImage('enkii-logo.png');
@@ -102,22 +102,12 @@ function setup() {
       speed: random(1, 5)
     });
   }
-  // Delay loading leaderboard until Firebase is ready
-  if (window.firebaseReady && database) {
+  // Load leaderboard if Firebase is ready
+  if (window.firebaseReady && window.database) {
     loadLeaderboard();
   } else {
-    window.addEventListener('load', () => {
-      if (window.firebaseReady && window.database) {
-        loadLeaderboard();
-      } else {
-        console.error('Firebase database not ready');
-        leaderboard = [
-          { name: "Player1", score: 5000 },
-          { name: "Player2", score: 4500 },
-          { name: "Player3", score: 4000 }
-        ].sort((a, b) => b.score - a.score).slice(0, 5);
-      }
-    });
+    console.error('Firebase not initialized, leaderboard will not load from server');
+    leaderboard = []; // Empty leaderboard if Firebase fails
   }
   selectEnemyFrames();
 }
@@ -452,7 +442,7 @@ function draw() {
 }
 
 function touchStarted() {
-  if (gameState === "start" || gameState === "gameover") {
+  if ((gameState === "start" || gameState === "gameover") && !window.nameInputVisible) {
     startGame();
   }
   return false;
@@ -470,6 +460,10 @@ function keyPressed() {
     } else if (gameState === "gameover") {
       startGame();
     }
+  }
+  // Prevent key presses from restarting the game when name input is visible
+  if (window.nameInputVisible && (gameState === "start" || gameState === "gameover")) {
+    return false;
   }
 }
 
@@ -858,60 +852,43 @@ function playPowerUpSound() {
   setTimeout(() => shootOsc.amp(0, 0.1), 100);
 }
 
-// Leaderboard functions with Firebase Client SDK
+// Leaderboard functions with Firebase (required for online storage)
 function loadLeaderboard() {
-  if (!database || !database.ref) {
-    console.error('Firebase database not initialized');
-    leaderboard = [
-      { name: "Player1", score: 5000 },
-      { name: "Player2", score: 4500 },
-      { name: "Player3", score: 4000 }
-    ].sort((a, b) => b.score - a.score).slice(0, 5);
+  if (!window.database) {
+    console.error('Firebase database not initialized, leaderboard will not load from server');
+    leaderboard = []; // Empty until Firebase initializes or fails permanently
+    alert('Failed to load leaderboard from server. Please check your internet connection or contact support.');
     return;
   }
-  database.ref('leaderboard').once('value').then(snapshot => {
-    leaderboard = Object.values(snapshot.val() || [
-      { name: "Player1", score: 5000 },
-      { name: "Player2", score: 4500 },
-      { name: "Player3", score: 4000 }
-    ]).sort((a, b) => b.score - a.score).slice(0, 5);
-  }).catch(error => {
+  window.database.ref('leaderboard').once('value', snapshot => {
+    leaderboard = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
+    console.log('Loaded leaderboard from Firebase:', leaderboard);
+  }, error => {
     console.error('Error loading leaderboard from Firebase:', error);
-    leaderboard = [
-      { name: "Player1", score: 5000 },
-      { name: "Player2", score: 4500 },
-      { name: "Player3", score: 4000 }
-    ].sort((a, b) => b.score - a.score).slice(0, 5);
+    leaderboard = []; // Empty if Firebase fails
+    alert('Error loading leaderboard from server. Please try again or contact support.');
   });
 }
 
 function addToLeaderboard(name, score) {
-  if (!database || !database.ref) {
-    console.error('Firebase database not initialized');
-    leaderboard.push({ name, score });
-    leaderboard.sort((a, b) => b.score - a.score);
-    leaderboard = leaderboard.slice(0, 5);
+  if (!window.database) {
+    console.error('Firebase database not initialized, scores cannot be saved to server');
+    alert('Unable to save score to server. Please check your internet connection or contact support.');
     return;
   }
   console.log('Adding to leaderboard:', { name, score });
-  database.ref('leaderboard').push({ name, score }).then(() => {
-    database.ref('leaderboard').once('value').then(snapshot => {
-      leaderboard = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
-      console.log('Updated leaderboard from Firebase:', leaderboard);
-    }).catch(error => {
-      console.error('Error updating leaderboard from Firebase:', error);
-      // Fallback: Store locally temporarily
-      leaderboard.push({ name, score });
-      leaderboard.sort((a, b) => b.score - a.score);
-      leaderboard = leaderboard.slice(0, 5);
-      console.log('Leaderboard (fallback after error):', leaderboard);
-    });
-  }).catch(error => {
-    console.error('Error pushing to Firebase:', error);
-    // Fallback: Store locally temporarily
-    leaderboard.push({ name, score });
-    leaderboard.sort((a, b) => b.score - a.score);
-    leaderboard = leaderboard.slice(0, 5);
-    console.log('Leaderboard (fallback on push error):', leaderboard);
+  window.database.ref('leaderboard').push({ name, score }, error => {
+    if (error) {
+      console.error('Error pushing to Firebase:', error);
+      alert('Error saving score to server. Please try again or contact support.');
+    } else {
+      window.database.ref('leaderboard').once('value', snapshot => {
+        leaderboard = Object.values(snapshot.val() || []).sort((a, b) => b.score - a.score).slice(0, 5);
+        console.log('Updated leaderboard from Firebase:', leaderboard);
+      }, error => {
+        console.error('Error updating leaderboard from Firebase:', error);
+        alert('Error saving score to server. Please try again or contact support.');
+      });
+    }
   });
 }
