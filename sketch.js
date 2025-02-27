@@ -178,9 +178,9 @@ function draw() {
       let touchX = touches[0].x / scalingFactor; // Raw touch X position (logical coordinates)
       let touchY = touches[0].y / scalingFactor; // Raw touch Y position (logical coordinates)
 
-      // Offset the player position to be visible in front of the thumb (adjust as needed)
-      const offsetX = -40; // Move 40 pixels left (adjust for thumb position, e.g., right-handed)
-      const offsetY = -30; // Move 30 pixels up (adjust for thumb position, e.g., lower-right)
+      // Offset the player position 60 pixels up from the touch point (no horizontal offset)
+      const offsetX = 0; // No left/right offset
+      const offsetY = 60; // Move 60 pixels up (adjust as needed)
 
       // Set player position with offset, constrained to game bounds
       player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
