@@ -56,6 +56,8 @@
       z-index: 1000; /* Ensure overlay is above canvas */
       pointer-events: auto; /* Ensure the overlay receives touch events */
       touch-action: manipulation; /* Prevent scrolling interference on mobile */
+      color: white; /* Ensure text is visible against the dark background */
+      text-align: center; /* Center-align text */
     }
     #nameInputOverlay input {
       width: 200px;
@@ -69,6 +71,19 @@
       padding: 5px 15px;
       font-size: 16px;
       pointer-events: auto; /* Ensure the button receives touch events */
+      cursor: pointer; /* Indicate the button is clickable */
+      background-color: #4CAF50; /* Green button */
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    #nameInputOverlay button:hover {
+      background-color: #45a049; /* Slightly darker green on hover */
+    }
+    #leaderboardStatus {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ccc; /* Lighter color for status message */
     }
   </style>
 </head>
@@ -78,6 +93,7 @@
     <p>Score: <span id="currentScore">0</span></p>
     <input type="text" id="nameInput" maxlength="10" placeholder="Your name (max 10 chars)" autocomplete="off">
     <button onclick="submitName()">Submit</button>
+    <div id="leaderboardStatus"></div> <!-- Placeholder for leaderboard status -->
   </div>
   <script src="sketch.js"></script>
   <script>
@@ -90,10 +106,12 @@
     // Function to show/hide name input overlay
     function showNameInput(score) {
       const overlay = document.getElementById('nameInputOverlay');
+      const statusDiv = document.getElementById('leaderboardStatus');
       overlay.style.display = 'block';
       document.getElementById('currentScore').textContent = score;
       const nameInput = document.getElementById('nameInput');
       nameInput.value = "";
+      statusDiv.textContent = ""; // Clear status message
       // Focus the input field for keyboard
       setTimeout(() => {
         console.log('Focusing nameInput');
@@ -106,22 +124,41 @@
       }, 100); // Small delay to ensure DOM is ready
       window.gameState = "nameInput";
       window.nameInputVisible = true;
+      window.playerScore = score; // Store score for submission
     }
 
     function hideNameInput() {
-      document.getElementById('nameInputOverlay').style.display = 'none';
+      const overlay = document.getElementById('nameInputOverlay');
+      const statusDiv = document.getElementById('leaderboardStatus');
+      overlay.style.display = 'none';
+      statusDiv.textContent = ""; // Clear status message
       window.gameState = "gameover";
       window.nameInputVisible = false;
     }
 
     async function submitName() {
-      const name = document.getElementById('nameInput').value.trim();
+      const nameInput = document.getElementById('nameInput');
+      const statusDiv = document.getElementById('leaderboardStatus');
+      const name = nameInput.value.trim();
       if (name.length > 0) {
         window.playerName = name.substring(0, 10); // Limit to 10 chars
         if (window.addToLeaderboard) {
-          await window.addToLeaderboard(window.playerName, window.playerScore);
+          try {
+            statusDiv.textContent = "Saving score...";
+            await window.addToLeaderboard(window.playerName, window.playerScore);
+            statusDiv.textContent = "Score saved!";
+            setTimeout(hideNameInput, 1000); // Show success message briefly before hiding
+          } catch (error) {
+            console.error('Error saving score:', error);
+            statusDiv.textContent = "Failed to save score.";
+            setTimeout(hideNameInput, 2000); // Show error message before hiding
+          }
+        } else {
+          statusDiv.textContent = "Cannot save score.";
+          setTimeout(hideNameInput, 2000);
         }
-        hideNameInput();
+      } else {
+        statusDiv.textContent = "Please enter a name.";
       }
     }
 
@@ -153,6 +190,10 @@
     // Prevent key events from propagating to the canvas
     document.getElementById('nameInput').addEventListener('keydown', (e) => {
       e.stopPropagation();
+      // Allow Enter key to submit the form
+      if (e.key === "Enter") {
+        submitName();
+      }
     });
 
     // Additional iOS WebView handling: Ensure focus on tap
