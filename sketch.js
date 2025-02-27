@@ -34,7 +34,6 @@ let gameWidth = 400;
 let gameHeight = 600;
 let scalingFactor;
 let shootTimer = 0;
-let isTelegram = typeof Telegram !== 'undefined' && Telegram.WebApp; // Detect Telegram WebApp
 
 // Use the globally exposed Firebase database from index.html, with a fallback
 const database = window.database || null;
