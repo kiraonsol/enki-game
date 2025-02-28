@@ -2,11 +2,9 @@
 <html style="background-color: black;">
 <head>
   <title>ENKI</title>
-  <!-- Load Firebase SDK via CDN (non-module) -->
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
   <script>
-    // Your web app's Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBlTVNMSh1hCjzLLu5SV4XJZRfyOZgLMVc",
       authDomain: "enki-game.firebaseapp.com",
@@ -17,22 +15,20 @@
       appId: "1:902253472756:web:eea22ee4ee0021ad2fe7a1"
     };
 
-    // Initialize Firebase with error handling
     let firebaseInitialized = false;
     try {
       firebase.initializeApp(firebaseConfig);
-      window.database = firebase.database(); // Expose database globally for sketch.js
+      window.database = firebase.database();
       firebaseInitialized = true;
-      window.firebaseReady = true; // Signal that Firebase is ready
-      console.log('Firebase initialized successfully, database ready:', window.database);
+      window.firebaseReady = true;
+      console.log('Firebase initialized successfully');
     } catch (error) {
       console.error('Firebase initialization failed:', error);
       window.firebaseReady = false;
-      window.database = null; // Ensure database is null if initialization fails
-      alert('Failed to initialize Firebase. Leaderboard and score saving may not work. Please check your internet connection or contact support.');
+      window.database = null;
+      alert('Failed to initialize Firebase. Leaderboard may not work.');
     }
 
-    // Initialize Telegram WebApp if available
     if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
       Telegram.WebApp.ready();
       console.log('Telegram WebApp initialized');
@@ -41,78 +37,21 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: black;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-    }
-    #nameInputOverlay {
-      position: fixed; /* Use fixed positioning for better WebView handling */
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.8);
-      padding: 20px;
-      border-radius: 10px;
-      display: none;
-      z-index: 1000; /* Ensure overlay is above canvas */
-      pointer-events: auto; /* Ensure the overlay receives touch events */
-      touch-action: manipulation; /* Prevent scrolling interference on mobile */
-      color: white; /* Ensure text is visible against the dark background */
-      text-align: center; /* Center-align text */
-    }
-    #nameInputOverlay input {
-      width: 200px;
-      padding: 5px;
-      font-size: 16px;
-      margin-bottom: 10px;
-      pointer-events: auto; /* Ensure the input receives touch events */
-      touch-action: auto; /* Allow default touch actions on input */
-    }
-    #nameInputOverlay button {
-      padding: 5px 15px;
-      font-size: 16px;
-      pointer-events: auto; /* Ensure the button receives touch events */
-      cursor: pointer; /* Indicate the button is clickable */
-      background-color: #4CAF50; /* Green button */
-      color: white;
-      border: none;
-      border-radius: 5px;
-    }
-    #nameInputOverlay button:hover {
-      background-color: #45a049; /* Slightly darker green on hover */
-    }
-    #leaderboardStatus {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #ccc; /* Lighter color for status message */
-    }
+    body { margin: 0; padding: 0; background-color: black; overflow: hidden; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
-  <div id="nameInputOverlay">
-    <h2>Enter Your Name</h2>
-    <p>Score: <span id="currentScore">0</span></p>
-    <input type="text" id="nameInput" maxlength="10" placeholder="Your name (max 10 chars)" autocomplete="off">
-    <button onclick="submitName()">Submit</button>
-    <div id="leaderboardStatus"></div> <!-- Placeholder for leaderboard status -->
-  </div>
   <script src="sketch.js"></script>
   <script>
-    // Global variables for communication between index.html and sketch.js
     window.gameState = "start";
     window.playerScore = 0;
     window.playerName = "";
-    window.nameInputVisible = false; // Track overlay visibility
+    window.nameInputVisible = false;
 
-    // Function to show/hide name input overlay
     async function showNameInput(score) {
+      console.log('showNameInput called with score:', score);
       if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-        // Use Telegram WebApp for name input
         try {
           Telegram.WebApp.ready();
           let name = await new Promise(resolve => {
@@ -129,7 +68,6 @@
             });
           });
 
-          // Ensure name is a string and trim it
           name = (name || "").trim();
           if (name.length > 0) {
             if (name.length > 10) {
@@ -138,128 +76,28 @@
             }
             window.playerName = name;
             await window.addToLeaderboard(window.playerName, score);
-            console.log('Score saved via Telegram WebApp:', { name: window.playerName, score });
-            // Reload leaderboard to reflect new entry
-            if (window.loadLeaderboard) {
-              await window.loadLeaderboard();
-            }
+            console.log('Score saved:', { name: window.playerName, score });
+            if (window.loadLeaderboard) await window.loadLeaderboard();
           } else {
             Telegram.WebApp.showAlert("No name entered. Score not saved.");
           }
-          hideNameInput();
         } catch (error) {
           console.error('Error using Telegram WebApp:', error);
-          Telegram.WebApp.showAlert("Error: Unable to save score. Please try again.");
-          hideNameInput();
+          Telegram.WebApp.showAlert("Error saving score. Please try again.");
         }
       } else {
-        // Fallback to HTML input for non-Telegram environments
-        const overlay = document.getElementById('nameInputOverlay');
-        const statusDiv = document.getElementById('leaderboardStatus');
-        overlay.style.display = 'block';
-        document.getElementById('currentScore').textContent = score;
-        const nameInput = document.getElementById('nameInput');
-        nameInput.value = "";
-        statusDiv.textContent = ""; // Clear status message
-        // Focus the input field for keyboard
-        setTimeout(() => {
-          console.log('Focusing nameInput');
-          nameInput.focus();
-          nameInput.click();
-          const touchEvent = new Event('touchstart', { bubbles: true });
-          nameInput.dispatchEvent(touchEvent);
-        }, 100);
-        window.playerScore = score; // Store score for submission
+        console.error('Telegram WebApp not available');
+        alert('Name input requires Telegram. Play via the bot.');
       }
       window.gameState = "nameInput";
       window.nameInputVisible = true;
-    }
-
-    function hideNameInput() {
-      const overlay = document.getElementById('nameInputOverlay');
-      const statusDiv = document.getElementById('leaderboardStatus');
-      overlay.style.display = 'none';
-      statusDiv.textContent = ""; // Clear status message
-      window.gameState = "gameover";
-      window.nameInputVisible = false;
-    }
-
-    async function submitName() {
-      const nameInput = document.getElementById('nameInput');
-      const statusDiv = document.getElementById('leaderboardStatus');
-      let name = nameInput.value.trim();
-      if (name.length > 0) {
-        name = name.substring(0, 10); // Limit to 10 chars
-        window.playerName = name;
-        if (window.addToLeaderboard) {
-          try {
-            statusDiv.textContent = "Saving score...";
-            await window.addToLeaderboard(window.playerName, window.playerScore);
-            statusDiv.textContent = "Score saved!";
-            // Reload leaderboard to reflect new entry
-            if (window.loadLeaderboard) {
-              await window.loadLeaderboard();
-            }
-            setTimeout(hideNameInput, 1000); // Show success message briefly before hiding
-          } catch (error) {
-            console.error('Error saving score:', error);
-            statusDiv.textContent = "Failed to save score.";
-            setTimeout(hideNameInput, 2000); // Show error message before hiding
-          }
-        } else {
-          statusDiv.textContent = "Cannot save score.";
-          setTimeout(hideNameInput, 2000);
-        }
-      } else {
-        statusDiv.textContent = "Please enter a name.";
-      }
-    }
-
-    // Prevent touch events on overlay from propagating to canvas, but allow input focus
-    document.getElementById('nameInputOverlay').addEventListener('touchstart', (e) => {
-      const target = e.target;
-      if (target.id === 'nameInput' || target.tagName === 'BUTTON') {
-        return; // Let the input or button handle the event
-      }
-      e.preventDefault(); // Prevent default for other elements in the overlay
-      e.stopPropagation(); // Stop event from reaching the canvas
-    });
-
-    document.getElementById('nameInputOverlay').addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    document.getElementById('nameInputOverlay').addEventListener('touchend', (e) => {
-      const target = e.target;
-      if (target.id === 'nameInput' || target.tagName === 'BUTTON') {
-        return; // Let the input or button handle the event
-      }
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    // Prevent key events from propagating to the canvas
-    document.getElementById('nameInput').addEventListener('keydown', (e) => {
-      e.stopPropagation();
-      if (e.key === "Enter") {
-        submitName();
-      }
-    });
-
-    // Additional iOS WebView handling: Ensure focus on tap
-    document.getElementById('nameInput').addEventListener('touchstart', (e) => {
-      const input = e.target;
-      console.log('nameInput touched, focusing');
       setTimeout(() => {
-        input.focus();
-        input.click();
-      }, 0);
-    });
+        window.gameState = "gameover";
+        window.nameInputVisible = false;
+      }, 2000);
+    }
 
-    // Expose functions to sketch.js
     window.showNameInput = showNameInput;
-    window.hideNameInput = hideNameInput;
   </script>
 </body>
 </html>
