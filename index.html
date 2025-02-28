@@ -29,61 +29,188 @@
       alert('Failed to initialize Firebase. Leaderboard may not work.');
     }
 
-    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-      Telegram.WebApp.ready();
-      console.log('Telegram WebApp initialized');
+    // Initialize Telegram WebApp with retry and error handling
+    function initializeTelegramWebApp() {
+      return new Promise((resolve) => {
+        let attempts = 20;
+        const interval = setInterval(() => {
+          if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+            try {
+              Telegram.WebApp.ready();
+              Telegram.WebApp.expand();
+              console.log('Telegram WebApp initialized successfully');
+              clearInterval(interval);
+              resolve(true);
+            } catch (error) {
+              console.error('Telegram WebApp initialization error:', error);
+              clearInterval(interval);
+              resolve(false);
+            }
+          } else if (attempts === 0) {
+            console.warn('Telegram WebApp not available after retries');
+            clearInterval(interval);
+            resolve(false);
+          }
+          attempts--;
+          console.log('Attempting to initialize Telegram WebApp, attempts remaining:', attempts);
+        }, 500);
+      });
     }
+
+    // Call initialization on load with delay
+    setTimeout(() => {
+      initializeTelegramWebApp().then((success) => {
+        if (!success) {
+          console.error('Failed to initialize Telegram WebApp');
+        }
+      });
+    }, 2000);
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
   <style>
     body { margin: 0; padding: 0; background-color: black; overflow: hidden; }
     canvas { display: block; }
+    #leaderboard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+    }
   </style>
 </head>
 <body>
+  <div id="leaderboard"></div>
   <script src="sketch.js"></script>
   <script>
     window.gameState = "start";
     window.playerScore = 0;
     window.playerName = "";
     window.nameInputVisible = false;
+    window.leaderboardData = [];
 
+    // Load leaderboard data from Firebase
+    async function loadLeaderboard() {
+      if (!window.database) {
+        console.error('Firebase database not available');
+        return;
+      }
+      try {
+        const snapshot = await window.database.ref('leaderboard').orderByChild('score').limitToLast(10).once('value');
+        const leaderboard = [];
+        snapshot.forEach(child => {
+          const entry = child.val();
+          leaderboard.push({ name: entry.name, score: entry.score });
+        });
+        // Sort in descending order (highest score first)
+        leaderboard.sort((a, b) => b.score - a.score);
+        window.leaderboardData = leaderboard;
+        console.log('Leaderboard loaded:', window.leaderboardData);
+        updateLeaderboardDisplay();
+      } catch (error) {
+        console.error('Error loading leaderboard:', error);
+      }
+    }
+
+    // Update leaderboard display
+    function updateLeaderboardDisplay() {
+      const leaderboardDiv = document.getElementById('leaderboard');
+      if (window.gameState === "leaderboard") {
+        let html = "<b>Leaderboard (Top 10)</b><br>";
+        window.leaderboardData.forEach((entry, index) => {
+          html += `${index + 1}. ${entry.name}: ${entry.score}<br>`;
+        });
+        leaderboardDiv.innerHTML = html;
+        leaderboardDiv.style.display = 'block';
+      } else {
+        leaderboardDiv.style.display = 'none';
+      }
+    }
+
+    // Add score to Firebase leaderboard
+    async function addToLeaderboard(name, score) {
+      if (!window.database) {
+        console.error('Firebase database not available');
+        return;
+      }
+      try {
+        await window.database.ref('leaderboard').push({ name, score });
+        console.log('Score added to leaderboard:', { name, score });
+      } catch (error) {
+        console.error('Error adding score to leaderboard:', error);
+      }
+    }
+
+    // Show name input prompt
     async function showNameInput(score) {
       console.log('showNameInput called with score:', score);
-      if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-        try {
-          Telegram.WebApp.ready();
-          let name = await new Promise(resolve => {
-            Telegram.WebApp.showPopup({
-              title: "Enter Your Name",
-              message: `Score: ${score}\nEnter your name (max 10 chars):`,
-              buttons: [{ type: "ok", id: "submit" }, { type: "cancel" }]
-            }, (buttonId) => {
-              if (buttonId === "submit") {
-                Telegram.WebApp.showPrompt("Your name:", resolve);
-              } else {
-                resolve("");
-              }
+      const isWebAppReady = await initializeTelegramWebApp();
+      if (isWebAppReady) {
+        let attempts = 5;
+        while (attempts > 0) {
+          try {
+            Telegram.WebApp.ready();
+            console.log('Attempting to show Telegram prompt, attempt:', 6 - attempts);
+            let name = await new Promise(resolve => {
+              Telegram.WebApp.showPopup({
+                title: "Enter Your Name",
+                message: `Score: ${score}\nEnter your name (max 10 chars):`,
+                buttons: [{ type: "ok", id: "submit" }, { type: "cancel" }]
+              }, (buttonId) => {
+                console.log('Popup response:', buttonId);
+                if (buttonId === "submit") {
+                  Telegram.WebApp.showPrompt("Your name:", resolve);
+                } else {
+                  resolve("");
+                }
+              });
             });
-          });
 
-          name = (name || "").trim();
-          if (name.length > 0) {
-            if (name.length > 10) {
-              name = name.substring(0, 10);
-              Telegram.WebApp.showAlert("Name truncated to 10 characters.");
+            console.log('Received name from prompt:', name);
+            name = (name || "").trim();
+            if (name.length > 0) {
+              if (name.length > 10) {
+                name = name.substring(0, 10);
+                Telegram.WebApp.showAlert("Name truncated to 10 characters.");
+              }
+              window.playerName = name;
+              if (window.database) {
+                await window.addToLeaderboard(window.playerName, score);
+                console.log('Score saved:', { name: window.playerName, score });
+                await loadLeaderboard();
+              } else {
+                console.log('Firebase not available, skipping score save');
+              }
+              break;
+            } else {
+              Telegram.WebApp.showAlert("No name entered. Score not saved.");
+              break;
             }
-            window.playerName = name;
-            await window.addToLeaderboard(window.playerName, score);
-            console.log('Score saved:', { name: window.playerName, score });
-            if (window.loadLeaderboard) await window.loadLeaderboard();
-          } else {
-            Telegram.WebApp.showAlert("No name entered. Score not saved.");
+          } catch (error) {
+            console.error('Error using Telegram WebApp, attempt:', 6 - attempts, error);
+            attempts--;
+            if (attempts === 0) {
+              console.error('All attempts failed, falling back to default prompt');
+              Telegram.WebApp.showAlert("Error saving score. Falling back to default prompt.");
+              let fallbackName = prompt("Enter your name (max 10 chars):", "");
+              fallbackName = (fallbackName || "").trim();
+              if (fallbackName.length > 0) {
+                if (fallbackName.length > 10) fallbackName = fallbackName.substring(0, 10);
+                window.playerName = fallbackName;
+                if (window.database) {
+                  await window.addToLeaderboard(window.playerName, score);
+                  await loadLeaderboard();
+                }
+              }
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-        } catch (error) {
-          console.error('Error using Telegram WebApp:', error);
-          Telegram.WebApp.showAlert("Error saving score. Please try again.");
         }
       } else {
         console.error('Telegram WebApp not available');
@@ -92,12 +219,14 @@
       window.gameState = "nameInput";
       window.nameInputVisible = true;
       setTimeout(() => {
-        window.gameState = "gameover";
+        window.gameState = "leaderboard";
         window.nameInputVisible = false;
+        console.log('Transitioning to leaderboard state');
       }, 2000);
     }
 
     window.showNameInput = showNameInput;
+    window.loadLeaderboard = loadLeaderboard;
   </script>
 </body>
 </html>
