@@ -37,7 +37,7 @@
       return new Promise((resolve) => {
         let attempts = 200; // Retry for up to 100 seconds
         console.log('Starting Telegram WebApp initialization...');
-        console.log('Window object:', window);
+        console.log('Window object keys:', Object.keys(window));
         const interval = setInterval(() => {
           if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
             try {
@@ -115,23 +115,14 @@
     window.nameInputVisible = false;
     window.leaderboardData = [];
 
-    // Start the game after a delay, with a timeout to prevent infinite loading
-    const maxLoadingTime = 120000; // 120 seconds max loading time
+    // Start the game after a delay, proceeding regardless of WebApp initialization
     setTimeout(() => {
-      if (window.gameState === "loading") {
-        console.error('Loading timed out after 120 seconds, proceeding to start state');
-        window.gameState = "start";
+      window.gameState = "start";
+      console.log('Game state set to start');
+      if (!isWebAppReady) {
+        console.warn('Proceeding to start state despite Telegram WebApp not being initialized');
       }
-    }, maxLoadingTime);
-
-    setTimeout(() => {
-      if (isWebAppReady) {
-        window.gameState = "start";
-        console.log('Game state set to start');
-      } else {
-        console.error('Cannot start game: Telegram WebApp not initialized, waiting for timeout');
-      }
-    }, 6000);
+    }, 10000); // Reduced timeout to 10 seconds for faster testing
 
     // Load leaderboard data from Firebase
     async function loadLeaderboard() {
@@ -185,12 +176,12 @@
       }
     }
 
-    // Show name input prompt
+    // Show name input prompt (prioritize bot submission)
     async function showNameInput(score) {
       console.log('showNameInput called with score:', score);
       let name = "";
       
-      // Ensure WebApp is ready
+      // Attempt to use Telegram WebApp for name input
       const webAppSuccess = await ensureWebAppReady();
       if (webAppSuccess) {
         let attempts = 5;
