@@ -35,8 +35,9 @@
     // Initialize Telegram WebApp with retry and error handling
     function initializeTelegramWebApp() {
       return new Promise((resolve) => {
-        let attempts = 100; // Retry for up to 50 seconds
+        let attempts = 200; // Retry for up to 100 seconds
         console.log('Starting Telegram WebApp initialization...');
+        console.log('Window object:', window);
         const interval = setInterval(() => {
           if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
             try {
@@ -46,6 +47,8 @@
               console.log('Telegram WebApp details:', Telegram.WebApp);
               console.log('Init Data:', Telegram.WebApp.initData);
               console.log('User:', Telegram.WebApp.initDataUnsafe?.user);
+              console.log('Platform:', Telegram.WebApp.platform);
+              console.log('Version:', Telegram.WebApp.version);
               isWebAppReady = true;
               clearInterval(interval);
               resolve(true);
@@ -56,6 +59,7 @@
             }
           } else if (attempts === 0) {
             console.warn('Telegram WebApp not available after retries');
+            console.log('Global window.Telegram:', window.Telegram);
             clearInterval(interval);
             resolve(false);
           }
@@ -111,10 +115,22 @@
     window.nameInputVisible = false;
     window.leaderboardData = [];
 
-    // Start the game after a delay
+    // Start the game after a delay, with a timeout to prevent infinite loading
+    const maxLoadingTime = 120000; // 120 seconds max loading time
     setTimeout(() => {
-      window.gameState = "start";
-      console.log('Game state set to start');
+      if (window.gameState === "loading") {
+        console.error('Loading timed out after 120 seconds, proceeding to start state');
+        window.gameState = "start";
+      }
+    }, maxLoadingTime);
+
+    setTimeout(() => {
+      if (isWebAppReady) {
+        window.gameState = "start";
+        console.log('Game state set to start');
+      } else {
+        console.error('Cannot start game: Telegram WebApp not initialized, waiting for timeout');
+      }
     }, 6000);
 
     // Load leaderboard data from Firebase
