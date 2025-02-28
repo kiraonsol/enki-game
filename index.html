@@ -31,6 +31,12 @@
       window.database = null; // Ensure database is null if initialization fails
       alert('Failed to initialize Firebase. Leaderboard and score saving may not work. Please check your internet connection or contact support.');
     }
+
+    // Initialize Telegram WebApp if available
+    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      console.log('Telegram WebApp initialized');
+    }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
@@ -104,27 +110,69 @@
     window.nameInputVisible = false; // Track overlay visibility
 
     // Function to show/hide name input overlay
-    function showNameInput(score) {
-      const overlay = document.getElementById('nameInputOverlay');
-      const statusDiv = document.getElementById('leaderboardStatus');
-      overlay.style.display = 'block';
-      document.getElementById('currentScore').textContent = score;
-      const nameInput = document.getElementById('nameInput');
-      nameInput.value = "";
-      statusDiv.textContent = ""; // Clear status message
-      // Focus the input field for keyboard
-      setTimeout(() => {
-        console.log('Focusing nameInput');
-        nameInput.focus();
-        // Force keyboard to appear on iOS by simulating a user tap
-        nameInput.click();
-        // Additional iOS WebView workaround: dispatch a touch event
-        const touchEvent = new Event('touchstart', { bubbles: true });
-        nameInput.dispatchEvent(touchEvent);
-      }, 100); // Small delay to ensure DOM is ready
+    async function showNameInput(score) {
+      if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+        // Use Telegram WebApp for name input
+        try {
+          Telegram.WebApp.ready();
+          let name = await new Promise(resolve => {
+            Telegram.WebApp.showPopup({
+              title: "Enter Your Name",
+              message: `Score: ${score}\nEnter your name (max 10 chars):`,
+              buttons: [{ type: "ok", id: "submit" }, { type: "cancel" }]
+            }, (buttonId) => {
+              if (buttonId === "submit") {
+                Telegram.WebApp.showPrompt("Your name:", resolve);
+              } else {
+                resolve("");
+              }
+            });
+          });
+
+          // Ensure name is a string and trim it
+          name = (name || "").trim();
+          if (name.length > 0) {
+            if (name.length > 10) {
+              name = name.substring(0, 10);
+              Telegram.WebApp.showAlert("Name truncated to 10 characters.");
+            }
+            window.playerName = name;
+            await window.addToLeaderboard(window.playerName, score);
+            console.log('Score saved via Telegram WebApp:', { name: window.playerName, score });
+            // Reload leaderboard to reflect new entry
+            if (window.loadLeaderboard) {
+              await window.loadLeaderboard();
+            }
+          } else {
+            Telegram.WebApp.showAlert("No name entered. Score not saved.");
+          }
+          hideNameInput();
+        } catch (error) {
+          console.error('Error using Telegram WebApp:', error);
+          Telegram.WebApp.showAlert("Error: Unable to save score. Please try again.");
+          hideNameInput();
+        }
+      } else {
+        // Fallback to HTML input for non-Telegram environments
+        const overlay = document.getElementById('nameInputOverlay');
+        const statusDiv = document.getElementById('leaderboardStatus');
+        overlay.style.display = 'block';
+        document.getElementById('currentScore').textContent = score;
+        const nameInput = document.getElementById('nameInput');
+        nameInput.value = "";
+        statusDiv.textContent = ""; // Clear status message
+        // Focus the input field for keyboard
+        setTimeout(() => {
+          console.log('Focusing nameInput');
+          nameInput.focus();
+          nameInput.click();
+          const touchEvent = new Event('touchstart', { bubbles: true });
+          nameInput.dispatchEvent(touchEvent);
+        }, 100);
+        window.playerScore = score; // Store score for submission
+      }
       window.gameState = "nameInput";
       window.nameInputVisible = true;
-      window.playerScore = score; // Store score for submission
     }
 
     function hideNameInput() {
@@ -139,14 +187,19 @@
     async function submitName() {
       const nameInput = document.getElementById('nameInput');
       const statusDiv = document.getElementById('leaderboardStatus');
-      const name = nameInput.value.trim();
+      let name = nameInput.value.trim();
       if (name.length > 0) {
-        window.playerName = name.substring(0, 10); // Limit to 10 chars
+        name = name.substring(0, 10); // Limit to 10 chars
+        window.playerName = name;
         if (window.addToLeaderboard) {
           try {
             statusDiv.textContent = "Saving score...";
             await window.addToLeaderboard(window.playerName, window.playerScore);
             statusDiv.textContent = "Score saved!";
+            // Reload leaderboard to reflect new entry
+            if (window.loadLeaderboard) {
+              await window.loadLeaderboard();
+            }
             setTimeout(hideNameInput, 1000); // Show success message briefly before hiding
           } catch (error) {
             console.error('Error saving score:', error);
@@ -165,7 +218,6 @@
     // Prevent touch events on overlay from propagating to canvas, but allow input focus
     document.getElementById('nameInputOverlay').addEventListener('touchstart', (e) => {
       const target = e.target;
-      // Allow the input and button to handle their own touch events
       if (target.id === 'nameInput' || target.tagName === 'BUTTON') {
         return; // Let the input or button handle the event
       }
@@ -190,7 +242,6 @@
     // Prevent key events from propagating to the canvas
     document.getElementById('nameInput').addEventListener('keydown', (e) => {
       e.stopPropagation();
-      // Allow Enter key to submit the form
       if (e.key === "Enter") {
         submitName();
       }
