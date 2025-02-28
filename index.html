@@ -219,13 +219,33 @@
             console.error('Error using Telegram WebApp, attempt:', 6 - attempts, error);
             attempts--;
             if (attempts === 0) {
-              console.error('All attempts failed, falling back to browser prompt');
-              name = prompt("Enter your name (max 10 chars):", "");
-              if (!name) {
-                alert("No name entered. Score not saved.");
-                window.gameState = "gameover";
-                window.nameInputVisible = false;
-                return;
+              console.error('All attempts failed, falling back to bot submission');
+              if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+                try {
+                  Telegram.WebApp.sendData(JSON.stringify({ action: "submit_score", score: score }));
+                  console.log('Sent score to bot via sendData:', score);
+                  window.gameState = "gameover";
+                  window.nameInputVisible = false;
+                  return;
+                } catch (error) {
+                  console.error('Error sending data to bot:', error);
+                  name = prompt("Enter your name (max 10 chars):", "");
+                  if (!name) {
+                    alert("No name entered. Score not saved.");
+                    window.gameState = "gameover";
+                    window.nameInputVisible = false;
+                    return;
+                  }
+                }
+              } else {
+                console.error('Telegram WebApp unavailable, falling back to browser prompt');
+                name = prompt("Enter your name (max 10 chars):", "");
+                if (!name) {
+                  alert("No name entered. Score not saved.");
+                  window.gameState = "gameover";
+                  window.nameInputVisible = false;
+                  return;
+                }
               }
             }
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -233,7 +253,17 @@
         }
       } else {
         console.error('Telegram WebApp not available after all retries');
-        // Fallback to browser prompt
+        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+          try {
+            Telegram.WebApp.sendData(JSON.stringify({ action: "submit_score", score: score }));
+            console.log('Sent score to bot via sendData:', score);
+            window.gameState = "gameover";
+            window.nameInputVisible = false;
+            return;
+          } catch (error) {
+            console.error('Error sending data to bot:', error);
+          }
+        }
         name = prompt("Enter your name (max 10 chars):", "");
         if (!name) {
           alert("No name entered. Score not saved.");
