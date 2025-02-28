@@ -71,7 +71,16 @@
       if (!success) {
         console.error('Failed to initialize Telegram WebApp after all retries');
       }
-    }, 2000);
+    }, 5000);
+
+    // Re-attempt initialization dynamically
+    async function ensureWebAppReady() {
+      if (!isWebAppReady) {
+        console.log('WebApp not ready, re-attempting initialization...');
+        return await initializeTelegramWebApp();
+      }
+      return true;
+    }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
@@ -106,7 +115,7 @@
     setTimeout(() => {
       window.gameState = "start";
       console.log('Game state set to start');
-    }, 5000);
+    }, 6000);
 
     // Load leaderboard data from Firebase
     async function loadLeaderboard() {
@@ -164,23 +173,10 @@
     async function showNameInput(score) {
       console.log('showNameInput called with score:', score);
       let name = "";
-      if (!isWebAppReady) {
-        console.log('Telegram WebApp not ready, re-attempting initialization...');
-        const success = await initializeTelegramWebApp();
-        if (!success) {
-          console.error('Telegram WebApp not available after retry');
-          // Fallback to browser prompt as a temporary measure
-          name = prompt("Enter your name (max 10 chars):", "");
-          if (!name) {
-            alert("No name entered. Score not saved.");
-            window.gameState = "gameover";
-            window.nameInputVisible = false;
-            return;
-          }
-        }
-      }
-
-      if (isWebAppReady) {
+      
+      // Ensure WebApp is ready
+      const webAppSuccess = await ensureWebAppReady();
+      if (webAppSuccess) {
         let attempts = 5;
         while (attempts > 0) {
           try {
@@ -218,6 +214,16 @@
             }
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
+        }
+      } else {
+        console.error('Telegram WebApp not available after all retries');
+        // Fallback to browser prompt
+        name = prompt("Enter your name (max 10 chars):", "");
+        if (!name) {
+          alert("No name entered. Score not saved.");
+          window.gameState = "gameover";
+          window.nameInputVisible = false;
+          return;
         }
       }
 
