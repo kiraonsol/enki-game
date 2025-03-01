@@ -5,7 +5,6 @@
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
   <script>
-    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBlTVNMSh1hCjzLLu5SV4XJZRfyOZgLMVc",
       authDomain: "enki-game.firebaseapp.com",
@@ -16,7 +15,6 @@
       appId: "1:902253472756:web:eea22ee4ee0021ad2fe7a1"
     };
 
-    // Initialize Firebase
     let firebaseInitialized = false;
     try {
       firebase.initializeApp(firebaseConfig);
@@ -31,11 +29,12 @@
       alert('Failed to initialize Firebase. Leaderboard may not work.');
     }
 
-    // Initialize Telegram WebApp
     if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
       Telegram.WebApp.ready();
-      Telegram.WebApp.expand(); // Maximize the web app height within Telegram
+      Telegram.WebApp.expand();
       console.log('Telegram WebApp initialized and expanded');
+    } else {
+      console.log('Telegram WebApp not detected on load');
     }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
@@ -48,42 +47,28 @@
 <body>
   <script src="sketch.js"></script>
   <script>
-    // Global game state variables
     window.gameState = "start";
     window.playerScore = 0;
     window.playerName = "";
     window.nameInputVisible = false;
 
-    // Show name input for leaderboard using Telegram WebApp
     async function showNameInput(score) {
       console.log('showNameInput called with score:', score);
+      console.log('Telegram WebApp status:', typeof Telegram !== 'undefined' && Telegram.WebApp ? 'Available' : 'Not Available');
       if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
         try {
           Telegram.WebApp.ready();
-          // Get user data from Telegram
           let user = Telegram.WebApp.initDataUnsafe.user || {};
+          console.log('Telegram User Data:', user);
           let suggestedName = user.username || user.first_name || "Player";
 
-          // Show popup with score and suggested name
           let name = await new Promise(resolve => {
-            Telegram.WebApp.showPopup({
-              title: "Enter Your Name",
-              message: `Score: ${score}\nEnter your name (leave blank for "${suggestedName}", max 10 chars):`,
-              buttons: [{ type: "ok", id: "submit" }, { type: "cancel" }]
-            }, (buttonId) => {
-              if (buttonId === "submit") {
-                Telegram.WebApp.showPrompt("Your name:", (input) => {
-                  resolve(input || "");
-                });
-              } else {
-                resolve("");
-              }
-            });
+            Telegram.WebApp.showPrompt(`Score: ${score}\nEnter your name (leave blank for "${suggestedName}", max 10 chars):`, resolve);
           });
 
           name = (name || "").trim();
           if (name === "") {
-            name = suggestedName; // Use Telegram name if input is empty
+            name = suggestedName;
           }
           if (name.length > 10) {
             name = name.substring(0, 10);
@@ -102,7 +87,7 @@
           Telegram.WebApp.showAlert("Error saving score. Please try again.");
         }
       } else {
-        console.error('Telegram WebApp not available');
+        console.error('Telegram WebApp not available at leaderboard screen');
         alert('Name input requires Telegram. Play via the bot.');
       }
       window.gameState = "nameInput";
@@ -113,7 +98,6 @@
       }, 2000);
     }
 
-    // Expose showNameInput to the global scope for sketch.js
     window.showNameInput = showNameInput;
   </script>
 </body>
