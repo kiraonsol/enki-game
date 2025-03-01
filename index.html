@@ -2,6 +2,8 @@
 <html style="background-color: black;">
 <head>
   <title>ENKI</title>
+  <!-- Add CSP meta tag to allow unsafe-eval -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com;">
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -85,7 +87,6 @@
           let suggestedName = user.username || user.first_name || "Player";
           console.log('Suggested name:', suggestedName);
 
-          // Prompt for name
           console.log('Showing Telegram prompt...');
           let name = await new Promise(resolve => {
             Telegram.WebApp.showPrompt(`Score: ${score}\nEnter your name (leave blank for "${suggestedName}", max 10 chars):`, resolve);
