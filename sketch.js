@@ -296,7 +296,7 @@ function draw() {
                 player.score += 100 * (1 + (stage - 1) * 0.1);
                 console.log('Enemy killed, new score:', player.score);
                 playExplosionSound();
-                if (random() < 0.05) {
+                if (random() < 0.5) {
                   upgrades.push(new Upgrade(enemy.x, enemy.y, floor(random(2))));
                 }
                 bullets.splice(i, 1);
