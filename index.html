@@ -4,7 +4,6 @@
   <title>ENKI</title>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
-  <!-- Explicitly include Telegram WebApp script as a fallback -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     const firebaseConfig = {
@@ -31,7 +30,6 @@
       alert('Failed to initialize Firebase. Leaderboard may not work.');
     }
 
-    // Poll for Telegram WebApp initialization
     let telegramReady = false;
     const waitForTelegram = async () => {
       return new Promise((resolve) => {
@@ -53,7 +51,6 @@
       });
     };
 
-    // Call the wait function on load
     waitForTelegram();
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
@@ -73,7 +70,6 @@
 
     async function showNameInput(score) {
       console.log('showNameInput called with score:', score);
-      // Wait for Telegram to be ready if not already
       if (!telegramReady) {
         console.log('Telegram not ready, waiting...');
         await waitForTelegram();
@@ -87,10 +83,14 @@
           let user = Telegram.WebApp.initDataUnsafe.user || {};
           console.log('Telegram User Data:', user);
           let suggestedName = user.username || user.first_name || "Player";
+          console.log('Suggested name:', suggestedName);
 
+          // Prompt for name
+          console.log('Showing Telegram prompt...');
           let name = await new Promise(resolve => {
             Telegram.WebApp.showPrompt(`Score: ${score}\nEnter your name (leave blank for "${suggestedName}", max 10 chars):`, resolve);
           });
+          console.log('Name received from prompt:', name);
 
           name = (name || "").trim();
           if (name === "") {
@@ -98,18 +98,26 @@
           }
           if (name.length > 10) {
             name = name.substring(0, 10);
+            console.log('Name truncated to 10 characters:', name);
             Telegram.WebApp.showAlert("Name truncated to 10 characters.");
           }
           if (name) {
             window.playerName = name;
+            console.log('Saving score to Firebase...');
             await window.addToLeaderboard(window.playerName, score);
             console.log('Score saved:', { name: window.playerName, score });
-            if (window.loadLeaderboard) await window.loadLeaderboard();
+            if (window.loadLeaderboard) {
+              console.log('Reloading leaderboard...');
+              await window.loadLeaderboard();
+              console.log('Leaderboard reloaded');
+            }
           } else {
+            console.log('No name provided, showing alert');
             Telegram.WebApp.showAlert("No name provided. Score not saved.");
           }
         } catch (error) {
-          console.error('Error using Telegram WebApp:', error);
+          console.error('Error in showNameInput:', error);
+          console.error('Error stack:', error.stack);
           Telegram.WebApp.showAlert("Error saving score. Please try again.");
         }
       } else {
