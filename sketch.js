@@ -6,7 +6,7 @@ let explosions = [];
 let upgrades = [];
 let gameState = "start";
 let stage = 1;
-let levelTransition = false; // Flag to prevent multiple stage increments
+let levelTransition = false;
 let stars = [];
 let shootOsc, explodeOsc, hitOsc;
 let enkiiLogo;
@@ -27,7 +27,7 @@ let redSmallFrame, greenSmallFrame;
 let redMicroFrame, greenMicroFrame;
 let heartSpinSheet;
 let firepowerSheet;
-let leaderboard = []; // Initialize leaderboard as an array to prevent undefined
+let leaderboard = [];
 let playerName = "";
 let boss = null;
 let minions = [];
@@ -36,11 +36,9 @@ let gameHeight = 600;
 let scalingFactor;
 let shootTimer = 0;
 
-// Use the globally exposed Firebase database from index.html
 let database = window.database;
 
-// Toggle to disable leaderboard rendering for testing
-const SHOW_LEADERBOARD = true; // Set to false to disable leaderboard rendering in game over screen
+const SHOW_LEADERBOARD = true;
 
 function preload() {
   console.log('preload called');
@@ -102,7 +100,6 @@ function setup() {
   explodeOsc.start();
   hitOsc.start();
 
-  // Explicitly initialize all arrays
   stars = [];
   for (let i = 0; i < 100; i++) {
     stars.push({
@@ -120,7 +117,6 @@ function setup() {
   minions = [];
   leaderboard = [];
 
-  // Load leaderboard if Firebase is ready
   if (window.firebaseReady && window.database) {
     console.log('Loading leaderboard...');
     loadLeaderboard().then(() => {
@@ -128,13 +124,12 @@ function setup() {
     });
   } else {
     console.error('Firebase not initialized, leaderboard will not load from server');
-    leaderboard = []; // Ensure leaderboard is an array
+    leaderboard = [];
   }
 
   selectEnemyFrames();
 }
 
-// Handle window resizing for Telegram mini-app
 function windowResized() {
   let aspectRatio = gameWidth / gameHeight;
   if (windowWidth / windowHeight > aspectRatio) {
@@ -151,11 +146,6 @@ function draw() {
     background(0);
     scale(scalingFactor);
 
-    // Update and draw stars (moving downward) - behind everything else
-    if (!stars || !Array.isArray(stars)) {
-      console.error('stars is undefined or not an array:', stars);
-      stars = [];
-    }
     for (let i = stars.length - 1; i >= 0; i--) {
       let star = stars[i];
       star.y += star.speed;
@@ -182,51 +172,41 @@ function draw() {
         text("Tap to start", gameWidth / 2, gameHeight - 50);
       }
     } else if (gameState === "playing") {
-      // Handle desktop keyboard controls
-      if (!touches.length > 0) { // Only process keyboard if no touch input
-        if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) { // A key
+      if (!touches.length > 0) {
+        if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) {
           player.moveLeft();
         }
-        if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) { // D key
+        if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) {
           player.moveRight();
         }
-        if (keyIsDown(UP_ARROW) || keyIsDown(87)) { // W key
+        if (keyIsDown(UP_ARROW) || keyIsDown(87)) {
           player.moveUp();
         }
-        if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) { // S key
+        if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) {
           player.moveDown();
         }
       }
 
-      // Handle mobile touch controls with offset
       if (touches.length > 0) {
-        let touchX = touches[0].x / scalingFactor; // Raw touch X position (logical coordinates)
-        let touchY = touches[0].y / scalingFactor; // Raw touch Y position (logical coordinates)
+        let touchX = touches[0].x / scalingFactor;
+        let touchY = touches[0].y / scalingFactor;
 
-        // Offset the player position 50 pixels up from the touch point (no horizontal offset)
-        const offsetX = 0; // No left/right offset
-        const offsetY = -50; // Move 50 pixels up (adjust as needed to be in front of thumb)
+        const offsetX = 0;
+        const offsetY = -50;
 
-        // Set player position with offset, constrained to game bounds
         player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
         player.y = constrain(touchY + offsetY, gameHeight / 2, gameHeight - 20);
 
-        // Continuous firing while touching
         if (shootTimer <= 0) {
           let playerBullets = bullets.filter(b => b.dir === -1 && b.isPlayer).length;
           if (playerBullets < player.numShips * 2) {
             player.shoot();
-            shootTimer = 10; // Fire every 10 frames (≈0.17s at 60 FPS)
+            shootTimer = 10;
           }
         }
       }
       if (shootTimer > 0) shootTimer--;
 
-      // Update bullets
-      if (!bullets || !Array.isArray(bullets)) {
-        console.error('bullets is undefined or not an array:', bullets);
-        bullets = [];
-      }
       for (let i = bullets.length - 1; i >= 0; i--) {
         bullets[i].update();
         if (bullets[i].offscreen()) {
@@ -234,44 +214,36 @@ function draw() {
         }
       }
 
-      // Update boss and minions (if in boss level)
-      if (stage % 5 === 0) { // Boss level
+      if (stage % 5 === 0) {
         if (boss) {
           boss.update();
           boss.shoot();
         }
-        // Defensive check to ensure minions is defined
         if (!minions || !Array.isArray(minions)) {
           console.error('minions is undefined or not an array:', minions);
           minions = [];
         }
         for (let i = minions.length - 1; i >= 0; i--) {
           minions[i].update();
-          let shootChance = 0.004; // Increased from 0.002 (twice as often)
+          let shootChance = 0.004;
           if (random() < shootChance) {
             bullets.push(new Bullet(minions[i].x, minions[i].y + 10, 1, false));
           }
         }
-      } else { // Regular level
-        // Defensive check to ensure enemies is defined
+      } else {
         if (!enemies || !Array.isArray(enemies)) {
           console.error('enemies is undefined or not an array:', enemies);
           enemies = [];
         }
         for (let enemy of enemies) {
           enemy.update();
-          let shootChance = 0.005 + (stage - 1) * 0.002; // Linear increase
+          let shootChance = 0.005 + (stage - 1) * 0.002;
           if (random() < shootChance) {
             bullets.push(new Bullet(enemy.x, enemy.y + 10, 1, false));
           }
         }
       }
 
-      // Update upgrades
-      if (!upgrades || !Array.isArray(upgrades)) {
-        console.error('upgrades is undefined or not an array:', upgrades);
-        upgrades = [];
-      }
       for (let i = upgrades.length - 1; i >= 0; i--) {
         let upgrade = upgrades[i];
         upgrade.update();
@@ -280,45 +252,39 @@ function draw() {
         }
       }
 
-      // Check collisions
-      if (!bullets || !Array.isArray(bullets)) {
-        console.error('bullets is undefined or not an array during collision check:', bullets);
-        bullets = [];
-      }
       for (let i = bullets.length - 1; i >= 0; i--) {
         let bullet = bullets[i];
-        if (bullet.dir === -1) { // Player's bullet (laser)
-          if (stage % 5 === 0) { // Boss level
-            if (boss && dist(bullet.x, bullet.y, boss.x, boss.y) < 30) { // Larger hitbox for boss
+        if (bullet.dir === -1) {
+          if (stage % 5 === 0) {
+            if (boss && dist(bullet.x, bullet.y, boss.x, boss.y) < 30) {
               boss.health--;
               bullets.splice(i, 1);
               if (boss.health <= 0) {
-                let bossX = boss.x; // Store boss position before nullifying
-                let bossY = boss.y; // Store boss position before nullifying
+                let bossX = boss.x;
+                let bossY = boss.y;
                 explosions.push(new Explosion(bossX, bossY));
-                boss = null; // Boss defeated
-                minions = []; // Clear minions (ensure minions is defined as array)
+                boss = null;
+                minions = [];
                 playExplosionSound();
                 if (random() < 0.5) {
                   upgrades.push(new Upgrade(bossX, bossY, floor(random(2))));
                 }
               }
             }
-            // Defensive check for minions
             if (!minions || !Array.isArray(minions)) {
               console.error('minions is undefined or not an array during collision check:', minions);
               minions = [];
             }
             for (let j = minions.length - 1; j >= 0; j--) {
               let minion = minions[j];
-              if (dist(bullet.x, bullet.y, minion.x, minion.y) < 30) { // Larger hitbox for minions (match Starlink size)
-                minion.health--; // Decrease minion health
+              if (dist(bullet.x, bullet.y, minion.x, minion.y) < 30) {
+                minion.health--;
                 if (minion.health <= 0) {
                   explosions.push(new Explosion(minion.x, minion.y));
                   minions.splice(j, 1);
                 }
                 bullets.splice(i, 1);
-                player.score += 50 * (1 + (stage - 1) * 0.1); // Lower score for minions
+                player.score += 50 * (1 + (stage - 1) * 0.1);
                 console.log('Minion killed, new score:', player.score);
                 playExplosionSound();
                 if (random() < 0.1) {
@@ -327,24 +293,23 @@ function draw() {
                 break;
               }
             }
-          } else { // Regular level
-            // Defensive check for enemies
+          } else {
             if (!enemies || !Array.isArray(enemies)) {
               console.error('enemies is undefined or not an array during collision check:', enemies);
               enemies = [];
             }
             for (let j = enemies.length - 1; j >= 0; j--) {
               let enemy = enemies[j];
-              if (dist(bullet.x, bullet.y, enemy.x, enemy.y) < 25) { // Adjusted hitbox for larger enemy sprites
-                enemy.health--; // Decrease enemy health
+              if (dist(bullet.x, bullet.y, enemy.x, enemy.y) < 25) {
+                enemy.health--;
                 if (enemy.health <= 0) {
                   explosions.push(new Explosion(enemy.x, enemy.y));
                   if (enemy.type === 1 && enemy.captured) {
-                    player.numShips = 2; // Dual fighter on boss defeat
+                    player.numShips = 2;
                   }
                   enemies.splice(j, 1);
                 }
-                player.score += 100 * (1 + (stage - 1) * 0.1); // Score scales with stage
+                player.score += 100 * (1 + (stage - 1) * 0.1);
                 console.log('Enemy killed, new score:', player.score);
                 playExplosionSound();
                 if (random() < 0.05) {
@@ -355,50 +320,46 @@ function draw() {
               }
             }
           }
-        } else { // Enemy's, boss's, or minion's bullet
-          let targetX = player.x; // Default to player position
-          let targetY = player.y; // Default to player position
-          let hitRadius = player.numShips === 1 ? 10 : 25; // Player hitbox based on ship count
+        } else {
+          let targetX = player.x;
+          let targetY = player.y;
+          let hitRadius = player.numShips === 1 ? 10 : 25;
 
           if (stage % 5 === 0 && boss) {
-            // During boss level, check if the bullet should hit the player or boss
-            if (bullet.isPlayer === false) { // Enemy/minion/boss bullet
-              // Damage the player
-              if (bullet.isBoss) { // Larger hitbox for boss projectiles (20x60)
-                if (dist(bullet.x, bullet.y, targetX, targetY) < 30) { // Increased hitRadius for boss beams (match visual size)
+            if (bullet.isPlayer === false) {
+              if (bullet.isBoss) {
+                if (dist(bullet.x, bullet.y, targetX, targetY) < 30) {
                   player.lives--;
                   if (player.numShips === 2) {
-                    player.numShips = 1; // Lose dual status
+                    player.numShips = 1;
                   }
                   bullets.splice(i, 1);
                   playHitSound();
                   if (player.lives <= 0) {
-                    gameState = "gameover"; // Show "GAME OVER" first
+                    gameState = "gameover";
                     setTimeout(() => {
-                      window.showNameInput(player.score); // Use HTML overlay for name input
-                    }, 2000); // Transition to name input after 2 seconds
+                      window.showNameInput(player.score);
+                    }, 2000);
                   } else {
-                    // Respawn player
                     player.x = gameWidth / 2;
                     player.y = gameHeight - 20;
                   }
                   break;
                 }
-              } else { // Minion or regular enemy bullet (10x30)
+              } else {
                 if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius) {
                   player.lives--;
                   if (player.numShips === 2) {
-                    player.numShips = 1; // Lose dual status
+                    player.numShips = 1;
                   }
                   bullets.splice(i, 1);
                   playHitSound();
                   if (player.lives <= 0) {
-                    gameState = "gameover"; // Show "GAME OVER" first
+                    gameState = "gameover";
                     setTimeout(() => {
-                      window.showNameInput(player.score); // Use HTML overlay for name input
-                    }, 2000); // Transition to name input after 2 seconds
+                      window.showNameInput(player.score);
+                    }, 2000);
                   } else {
-                    // Respawn player
                     player.x = gameWidth / 2;
                     player.y = gameHeight - 20;
                   }
@@ -407,21 +368,19 @@ function draw() {
               }
             }
           } else {
-            // In non-boss levels, enemy bullets damage the player
             if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius) {
               player.lives--;
               if (player.numShips === 2) {
-                player.numShips = 1; // Lose dual status
+                player.numShips = 1;
               }
               bullets.splice(i, 1);
               playHitSound();
               if (player.lives <= 0) {
-                gameState = "gameover"; // Show "GAME OVER" first
+                gameState = "gameover";
                 setTimeout(() => {
-                  window.showNameInput(player.score); // Use HTML overlay for name input
-                }, 2000); // Transition to name input after 2 seconds
+                  window.showNameInput(player.score);
+                }, 2000);
               } else {
-                // Respawn player
                 player.x = gameWidth / 2;
                 player.y = gameHeight - 20;
               }
@@ -431,11 +390,6 @@ function draw() {
         }
       }
 
-      // Check for upgrade collection
-      if (!upgrades || !Array.isArray(upgrades)) {
-        console.error('upgrades is undefined or not an array during upgrade check:', upgrades);
-        upgrades = [];
-      }
       for (let i = upgrades.length - 1; i >= 0; i--) {
         let upgrade = upgrades[i];
         if (dist(player.x, player.y, upgrade.x, upgrade.y) < 30) {
@@ -445,9 +399,8 @@ function draw() {
         }
       }
 
-      // Draw game elements
       player.draw();
-      if (stage % 5 === 0) { // Boss level
+      if (stage % 5 === 0) {
         if (boss) {
           boss.draw();
         }
@@ -497,7 +450,6 @@ function draw() {
         }
       }
 
-      // Draw UI
       fill(255);
       textSize(16 / scalingFactor);
       textAlign(LEFT);
@@ -508,21 +460,19 @@ function draw() {
         text("Boss Health: " + boss.health, 10, 80);
       }
 
-      // Consolidated level progression logic with transition flag
       if (!levelTransition) {
-        if (stage % 5 === 0) { // Boss level
-          // Defensive check for minions
+        if (stage % 5 === 0) {
           if (!boss && (Array.isArray(minions) ? minions.length === 0 : true)) {
-            levelTransition = true; // Set flag to prevent multiple increments
-            stage++; // Increment stage once
+            levelTransition = true;
+            stage++;
             console.log('Boss level completed, advancing to Stage:', stage);
             createEnemies(stage);
             selectEnemyFrames();
-            levelTransition = false; // Reset flag after transition
+            levelTransition = false;
           }
-        } else if (Array.isArray(enemies) ? enemies.length === 0 : true) { // Regular level
-          levelTransition = true; // Set flag to prevent multiple increments
-          stage++; // Increment stage once
+        } else if (Array.isArray(enemies) ? enemies.length === 0 : true) {
+          levelTransition = true;
+          stage++;
           console.log('Regular level completed, advancing to Stage:', stage);
           if (stage % 5 === 0) {
             spawnBossAndMinions();
@@ -530,7 +480,7 @@ function draw() {
             createEnemies(stage);
             selectEnemyFrames();
           }
-          levelTransition = false; // Reset flag after transition
+          levelTransition = false;
         }
       }
     } else if (gameState === "gameover") {
@@ -542,15 +492,15 @@ function draw() {
       textSize(16 / scalingFactor);
       text("Your Score: " + player.score, gameWidth / 2, gameHeight / 2 - 100);
 
-      // Temporarily simplify leaderboard rendering to isolate the issue
       text("Leaderboard:", gameWidth / 2, gameHeight / 2 - 50);
       if (SHOW_LEADERBOARD) {
         if (!leaderboard || !Array.isArray(leaderboard)) {
           console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
           leaderboard = [];
         }
+        // Updated rendering to allow score: 0
         for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
-          if (leaderboard[i] && leaderboard[i].name && leaderboard[i].score) {
+          if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
             text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
           } else {
             console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
@@ -575,7 +525,7 @@ function touchStarted() {
 }
 
 function keyPressed() {
-  if (!touches.length > 0) { // Only process keyboard if no touch input
+  if (!touches.length > 0) {
     if (gameState === "start" && key !== " ") {
       startGame();
     } else if (gameState === "playing" && key === " ") {
@@ -587,7 +537,6 @@ function keyPressed() {
       startGame();
     }
   }
-  // Prevent key presses from restarting the game when name input is visible
   if (window.nameInputVisible && (gameState === "start" || gameState === "gameover")) {
     return false;
   }
@@ -596,22 +545,22 @@ function keyPressed() {
 function startGame() {
   console.log('startGame called');
   player = new Player();
-  enemies = []; // Ensure enemies is always an array
-  bullets = []; // Ensure bullets is always an array
-  explosions = []; // Ensure explosions is always an array
-  upgrades = []; // Ensure upgrades is always an array
+  enemies = [];
+  bullets = [];
+  explosions = [];
+  upgrades = [];
   stage = 1;
-  levelTransition = false; // Reset flag on game start
+  levelTransition = false;
   playerName = "";
   boss = null;
-  minions = []; // Ensure minions is always an array
+  minions = [];
   gameState = "playing";
   createEnemies(stage);
   selectEnemyFrames();
 }
 
 function createEnemies(stage) {
-  enemies = []; // Ensure enemies is initialized as an array
+  enemies = [];
   if (stage % 5 !== 0) {
     let rows = 3 + Math.floor(stage / 5);
     let cols = 5 + Math.floor(stage / 10);
@@ -638,7 +587,7 @@ function createEnemies(stage) {
 
 function spawnBossAndMinions() {
   boss = new Boss(gameWidth / 2, 50);
-  minions = [ // Ensure minions is initialized as an array
+  minions = [
     new Enemy(gameWidth / 2 - 100, 100, 0, 'Starlink'),
     new Enemy(gameWidth / 2 + 100, 100, 0, 'Starlink')
   ];
@@ -665,7 +614,7 @@ class Player {
     this.y = gameHeight - 20;
     this.speed = 5;
     this.lives = 3;
-    this.score = 0; // Ensure it's a number, not capped
+    this.score = 0;
     this.numShips = 1;
     this.tripleShot = false;
     this.tripleShotTimer = 0;
@@ -746,10 +695,10 @@ class Enemy {
             player.y = gameHeight - 20;
           }, 1000);
         } else {
-          gameState = "gameover"; // Show "GAME OVER" first
+          gameState = "gameover";
           setTimeout(() => {
-            window.showNameInput(player.score); // Use HTML overlay for name input
-          }, 2000); // Transition to name input after 2 seconds
+            window.showNameInput(player.score);
+          }, 2000);
         }
         playHitSound();
       }
@@ -980,12 +929,11 @@ function playPowerUpSound() {
   setTimeout(() => shootOsc.amp(0, 0.1), 100);
 }
 
-// Leaderboard functions with Firebase (required for online storage)
 function loadLeaderboard() {
   return new Promise((resolve, reject) => {
     if (!window.database) {
       console.error('Firebase database not initialized, leaderboard will not load from server');
-      leaderboard = []; // Ensure leaderboard is an array
+      leaderboard = [];
       alert('Failed to load leaderboard from server. Please check your internet connection or contact support.');
       resolve();
       return;
@@ -997,7 +945,7 @@ function loadLeaderboard() {
       resolve();
     }, error => {
       console.error('Error loading leaderboard from Firebase:', error);
-      leaderboard = []; // Ensure leaderboard is an array
+      leaderboard = [];
       alert('Error loading leaderboard from server. Please try again or contact support.');
       resolve();
     });
@@ -1012,13 +960,15 @@ function addToLeaderboard(name, score) {
       resolve();
       return;
     }
-    console.log('Adding to leaderboard:', { name, score });
+    console.log('Attempting to add to leaderboard:', { name, score });
     window.database.ref('leaderboard').push({ name, score }, error => {
       if (error) {
         console.error('Error pushing to Firebase:', error);
+        console.error('Error stack:', error.stack);
         alert('Error saving score to server. Please try again or contact support.');
-        resolve();
+        reject(error);
       } else {
+        console.log('Score successfully pushed to Firebase');
         window.database.ref('leaderboard').once('value', snapshot => {
           const data = snapshot.val();
           leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 5) : [];
@@ -1026,7 +976,7 @@ function addToLeaderboard(name, score) {
           resolve();
         }, error => {
           console.error('Error updating leaderboard from Firebase:', error);
-          leaderboard = []; // Ensure leaderboard is an array
+          leaderboard = [];
           alert('Error saving score to server. Please try again or contact support.');
           resolve();
         });
