@@ -251,7 +251,7 @@ function draw() {
                 boss = null;
                 minions = [];
                 playExplosionSound();
-                if (random() < 0.3 && upgrades.length < MAX_UPGRADES) { // Reduced from 0.5 to 0.3
+                if (random() < 0.3 && upgrades.length < MAX_UPGRADES) {
                   upgrades.push(new Upgrade(bossX, bossY, floor(random(2))));
                 }
               }
@@ -272,7 +272,7 @@ function draw() {
                 player.score += 50 * (1 + (stage - 1) * 0.1);
                 console.log('Minion killed, new score:', player.score);
                 playExplosionSound();
-                if (random() < 0.05 && upgrades.length < MAX_UPGRADES) { // Reduced from 0.1 to 0.05
+                if (random() < 0.05 && upgrades.length < MAX_UPGRADES) {
                   upgrades.push(new Upgrade(minion.x, minion.y, floor(random(2))));
                 }
                 break;
@@ -297,7 +297,7 @@ function draw() {
                 player.score += 100 * (1 + (stage - 1) * 0.1);
                 console.log('Enemy killed, new score:', player.score);
                 playExplosionSound();
-                if (random() < 0.02 && upgrades.length < MAX_UPGRADES) { // Reduced from 0.05 to 0.02
+                if (random() < 0.02 && upgrades.length < MAX_UPGRADES) {
                   upgrades.push(new Upgrade(enemy.x, enemy.y, floor(random(2))));
                 }
                 bullets.splice(i, 1);
@@ -454,51 +454,51 @@ function draw() {
             createEnemies(stage);
             selectEnemyFrames();
             levelTransition = false;
-          }
-        } else if (Array.isArray(enemies) ? enemies.length === 0 : true) {
-          levelTransition = true;
-          stage++;
-          console.log('Regular level completed, advancing to Stage:', stage);
-          if (stage % 5 === 0) {
-            spawnBossAndMinions();
-          } else {
-            createEnemies(stage);
-            selectEnemyFrames();
-          }
-          levelTransition = false;
         }
+      } else if (Array.isArray(enemies) ? enemies.length === 0 : true) {
+        levelTransition = true;
+        stage++;
+        console.log('Regular level completed, advancing to Stage:', stage);
+        if (stage % 5 === 0) {
+          spawnBossAndMinions();
+        } else {
+          createEnemies(stage);
+          selectEnemyFrames();
+        }
+        levelTransition = false;
       }
-    } else if (gameState === "gameover") {
-      console.log('Rendering game over screen');
-      fill(255);
-      textSize(32 / scalingFactor);
-      textAlign(CENTER);
-      text("Game Over", gameWidth / 2, gameHeight / 2 - 150);
-      textSize(16 / scalingFactor);
-      text("Your Score: " + player.score, gameWidth / 2, gameHeight / 2 - 100);
-
-      text("Leaderboard:", gameWidth / 2, gameHeight / 2 - 50);
-      if (SHOW_LEADERBOARD) {
-        if (!leaderboard || !Array.isArray(leaderboard)) {
-          console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
-          leaderboard = [];
-        }
-        for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
-          if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
-            text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
-          } else {
-            console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
-          }
-        }
-      } else {
-        text("Leaderboard disabled for testing", gameWidth / 2, gameHeight / 2);
-      }
-      text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120);
     }
-  } catch (error) {
-    console.error('Error in draw():', error, error.stack);
-    text("Error: " + error.message, gameWidth / 2, gameHeight / 2);
+  } else if (gameState === "gameover") {
+    console.log('Rendering game over screen');
+    fill(255);
+    textSize(32 / scalingFactor);
+    textAlign(CENTER);
+    text("Game Over", gameWidth / 2, gameHeight / 2 - 150);
+    textSize(16 / scalingFactor);
+    text("Your Score: " + player.score, gameWidth / 2, gameHeight / 2 - 100);
+
+    text("Leaderboard:", gameWidth / 2, gameHeight / 2 - 50);
+    if (SHOW_LEADERBOARD) {
+      if (!leaderboard || !Array.isArray(leaderboard)) {
+        console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
+        leaderboard = [];
+      }
+      for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
+        if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
+          text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
+        } else {
+          console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
+        }
+      }
+    } else {
+      text("Leaderboard disabled for testing", gameWidth / 2, gameHeight / 2);
+    }
+    text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120);
   }
+} catch (error) {
+  console.error('Error in draw():', error, error.stack);
+  text("Error: " + error.message, gameWidth / 2, gameHeight / 2);
+}
 }
 
 function touchStarted() {
