@@ -72,18 +72,6 @@ function preload() {
   ];
   heartSpinSheet = loadImage('Heart_Spin.png');
   firepowerSheet = loadImage('Firepower.png');
-
-  shootOsc = new p5.Oscillator('sine');
-  shootOsc.amp(0);
-  shootOsc.freq(440);
-
-  explodeOsc = new p5.Oscillator('square');
-  explodeOsc.amp(0);
-  explodeOsc.freq(220);
-
-  hitOsc = new p5.Oscillator('triangle');
-  hitOsc.amp(0);
-  hitOsc.freq(110);
 }
 
 function setup() {
@@ -95,10 +83,6 @@ function setup() {
     scalingFactor = windowWidth / gameWidth;
   }
   createCanvas(gameWidth * scalingFactor, gameHeight * scalingFactor);
-
-  shootOsc.start();
-  explodeOsc.start();
-  hitOsc.start();
 
   stars = [];
   for (let i = 0; i < 100; i++) {
@@ -498,7 +482,6 @@ function draw() {
           console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
           leaderboard = [];
         }
-        // Updated rendering to allow score: 0
         for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
           if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
             text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
@@ -518,6 +501,35 @@ function draw() {
 }
 
 function touchStarted() {
+  // Initialize audio on first user interaction
+  if (!shootOsc) {
+    console.log('Initializing audio oscillators...');
+    try {
+      // Resume AudioContext
+      getAudioContext().resume().then(() => {
+        console.log('AudioContext resumed');
+        shootOsc = new p5.Oscillator('sine');
+        shootOsc.amp(0);
+        shootOsc.freq(440);
+        shootOsc.start();
+
+        explodeOsc = new p5.Oscillator('square');
+        explodeOsc.amp(0);
+        explodeOsc.freq(220);
+        explodeOsc.start();
+
+        hitOsc = new p5.Oscillator('triangle');
+        hitOsc.amp(0);
+        hitOsc.freq(110);
+        hitOsc.start();
+
+        console.log('Audio oscillators initialized');
+      });
+    } catch (error) {
+      console.error('Error initializing audio oscillators:', error);
+    }
+  }
+
   if ((gameState === "start" || gameState === "gameover") && !window.nameInputVisible) {
     startGame();
   }
@@ -901,32 +913,40 @@ class Upgrade {
 }
 
 function playShootingSound() {
-  shootOsc.setType('square');
-  shootOsc.freq(1000);
-  shootOsc.amp(0.5, 0.01);
-  shootOsc.freq(200, 0.1);
-  setTimeout(() => shootOsc.amp(0, 0.05), 150);
+  if (shootOsc) {
+    shootOsc.setType('square');
+    shootOsc.freq(1000);
+    shootOsc.amp(0.5, 0.01);
+    shootOsc.freq(200, 0.1);
+    setTimeout(() => shootOsc.amp(0, 0.05), 150);
+  }
 }
 
 function playExplosionSound() {
-  explodeOsc.freq(220);
-  explodeOsc.amp(0.5, 0.01);
-  setTimeout(() => {
-    explodeOsc.freq(110, 0.2);
-    explodeOsc.amp(0, 0.2);
-  }, 20);
+  if (explodeOsc) {
+    explodeOsc.freq(220);
+    explodeOsc.amp(0.5, 0.01);
+    setTimeout(() => {
+      explodeOsc.freq(110, 0.2);
+      explodeOsc.amp(0, 0.2);
+    }, 20);
+  }
 }
 
 function playHitSound() {
-  hitOsc.amp(0.5, 0.01);
-  setTimeout(() => hitOsc.amp(0, 0.1), 100);
+  if (hitOsc) {
+    hitOsc.amp(0.5, 0.01);
+    setTimeout(() => hitOsc.amp(0, 0.1), 100);
+  }
 }
 
 function playPowerUpSound() {
-  shootOsc.setType('sine');
-  shootOsc.freq(660);
-  shootOsc.amp(0.5, 0.01);
-  setTimeout(() => shootOsc.amp(0, 0.1), 100);
+  if (shootOsc) {
+    shootOsc.setType('sine');
+    shootOsc.freq(660);
+    shootOsc.amp(0.5, 0.01);
+    setTimeout(() => shootOsc.amp(0, 0.1), 100);
+  }
 }
 
 function loadLeaderboard() {
