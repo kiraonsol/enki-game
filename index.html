@@ -2,8 +2,8 @@
 <html style="background-color: black;">
 <head>
   <title>ENKI</title>
-  <!-- Add CSP meta tag to allow unsafe-eval -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com;">
+  <!-- Updated CSP to allow inline scripts and Web Workers -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com; worker-src 'self' blob:;">
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -80,10 +80,16 @@
       console.log('Telegram WebApp status at leaderboard:', typeof Telegram !== 'undefined' && Telegram.WebApp ? 'Available' : 'Not Available');
       if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
         try {
+          console.log('Calling Telegram.WebApp.ready()...');
           Telegram.WebApp.ready();
+          console.log('Telegram.WebApp.ready() completed');
           console.log('Telegram WebApp after ready():', Telegram.WebApp);
+
+          console.log('Fetching Telegram user data...');
           let user = Telegram.WebApp.initDataUnsafe.user || {};
           console.log('Telegram User Data:', user);
+
+          console.log('Determining suggested name...');
           let suggestedName = user.username || user.first_name || "Player";
           console.log('Suggested name:', suggestedName);
 
