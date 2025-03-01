@@ -122,7 +122,7 @@
       if (!isWebAppReady) {
         console.warn('Proceeding to start state despite Telegram WebApp not being initialized');
       }
-    }, 10000); // Reduced timeout to 10 seconds for faster testing
+    }, 5000); // 5-second delay to show loading message
 
     // Load leaderboard data from Firebase
     async function loadLeaderboard() {
