@@ -80,9 +80,12 @@ function setup() {
   let viewportWidth = window.innerWidth;
   let viewportHeight = window.innerHeight;
   if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+    Telegram.WebApp.expand(); // Ensure WebApp is expanded
     viewportWidth = Telegram.WebApp.viewportWidth || window.innerWidth;
     viewportHeight = Telegram.WebApp.viewportStableHeight || window.innerHeight;
     console.log('Using Telegram viewport:', viewportWidth, viewportHeight);
+    // Sometimes Telegram viewport data isn't immediately available, so retry after a short delay
+    setTimeout(resizeCanvasForViewport, 500);
   } else {
     console.log('Using window dimensions:', viewportWidth, viewportHeight);
   }
@@ -151,6 +154,7 @@ function resizeCanvasForViewport() {
   let viewportWidth = window.innerWidth;
   let viewportHeight = window.innerHeight;
   if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+    Telegram.WebApp.expand(); // Re-expand to ensure full viewport
     viewportWidth = Telegram.WebApp.viewportWidth || window.innerWidth;
     viewportHeight = Telegram.WebApp.viewportStableHeight || window.innerHeight;
     console.log('Viewport changed to:', viewportWidth, viewportHeight);
@@ -241,15 +245,15 @@ function draw() {
         player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
         player.y = constrain(touchY + offsetY, gameHeight / 2, gameHeight - 20 * (gameHeight / 600));
 
-        if (shootTimer <= 0) {
+        if (player.shootTimer <= 0) {
           let playerBullets = bullets.filter(b => b.dir === -1 && b.isPlayer).length;
           if (playerBullets < player.numShips * 2) {
             player.shoot();
-            shootTimer = 10;
+            player.shootTimer = 10;
           }
         }
       }
-      if (shootTimer > 0) shootTimer--;
+      if (player.shootTimer > 0) player.shootTimer--;
 
       for (let i = bullets.length - 1; i >= 0; i--) {
         bullets[i].update();
@@ -690,6 +694,7 @@ class Player {
     this.numShips = 1;
     this.tripleShot = false;
     this.tripleShotTimer = 0;
+    this.shootTimer = 0; // Initialize shootTimer as a property of Player
   }
 
   draw() {
