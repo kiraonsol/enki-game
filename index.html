@@ -5,6 +5,7 @@
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
   <script>
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBlTVNMSh1hCjzLLu5SV4XJZRfyOZgLMVc",
       authDomain: "enki-game.firebaseapp.com",
@@ -15,6 +16,7 @@
       appId: "1:902253472756:web:eea22ee4ee0021ad2fe7a1"
     };
 
+    // Initialize Firebase
     let firebaseInitialized = false;
     try {
       firebase.initializeApp(firebaseConfig);
@@ -26,7 +28,14 @@
       console.error('Firebase initialization failed:', error);
       window.firebaseReady = false;
       window.database = null;
-      console.log('Firebase disabled for debugging');
+      alert('Failed to initialize Firebase. Leaderboard may not work.');
+    }
+
+    // Initialize Telegram WebApp
+    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand(); // Maximize the web app height within Telegram
+      console.log('Telegram WebApp initialized and expanded');
     }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
@@ -34,101 +43,78 @@
   <style>
     body { margin: 0; padding: 0; background-color: black; overflow: hidden; }
     canvas { display: block; }
-    #leaderboard {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-family: Arial, sans-serif;
-      font-size: 16px;
-      background-color: rgba(0, 0, 0, 0.7);
-      padding: 10px;
-      border-radius: 5px;
-      display: none;
-    }
   </style>
 </head>
 <body>
-  <div id="leaderboard"></div>
   <script src="sketch.js"></script>
   <script>
-    window.gameState = "loading"; // Start in a loading state
+    // Global game state variables
+    window.gameState = "start";
     window.playerScore = 0;
     window.playerName = "";
     window.nameInputVisible = false;
-    window.leaderboardData = [];
 
-    // Start the game after a short delay
-    setTimeout(() => {
-      window.gameState = "start";
-      console.log('Game state set to start');
-    }, 3000); // 3-second delay to show loading message
-
-    // Load leaderboard data from Firebase
-    async function loadLeaderboard() {
-      if (!window.database) {
-        console.error('Firebase database not available');
-        return;
-      }
-      try {
-        const snapshot = await window.database.ref('leaderboard').orderByChild('score').limitToLast(10).once('value');
-        const leaderboard = [];
-        snapshot.forEach(child => {
-          const entry = child.val();
-          leaderboard.push({ name: entry.name, score: entry.score });
-        });
-        // Sort in descending order (highest score first)
-        leaderboard.sort((a, b) => b.score - a.score);
-        window.leaderboardData = leaderboard;
-        console.log('Leaderboard loaded:', window.leaderboardData);
-        updateLeaderboardDisplay();
-      } catch (error) {
-        console.error('Error loading leaderboard:', error);
-      }
-    }
-
-    // Update leaderboard display
-    function updateLeaderboardDisplay() {
-      const leaderboardDiv = document.getElementById('leaderboard');
-      if (window.gameState === "leaderboard") {
-        let html = "<b>Leaderboard (Top 10)</b><br>";
-        window.leaderboardData.forEach((entry, index) => {
-          html += `${index + 1}. ${entry.name}: ${entry.score}<br>`;
-        });
-        leaderboardDiv.innerHTML = html;
-        leaderboardDiv.style.display = 'block';
-      } else {
-        leaderboardDiv.style.display = 'none';
-      }
-    }
-
-    // Show name input prompt (always send to bot)
+    // Show name input for leaderboard using Telegram WebApp
     async function showNameInput(score) {
       console.log('showNameInput called with score:', score);
       if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
         try {
-          Telegram.WebApp.sendData(JSON.stringify({ action: "submit_score", score: score }));
-          console.log('Sent score to bot via sendData:', score);
+          Telegram.WebApp.ready();
+          // Get user data from Telegram
+          let user = Telegram.WebApp.initDataUnsafe.user || {};
+          let suggestedName = user.username || user.first_name || "Player";
+
+          // Show popup with score and suggested name
+          let name = await new Promise(resolve => {
+            Telegram.WebApp.showPopup({
+              title: "Enter Your Name",
+              message: `Score: ${score}\nEnter your name (leave blank for "${suggestedName}", max 10 chars):`,
+              buttons: [{ type: "ok", id: "submit" }, { type: "cancel" }]
+            }, (buttonId) => {
+              if (buttonId === "submit") {
+                Telegram.WebApp.showPrompt("Your name:", (input) => {
+                  resolve(input || "");
+                });
+              } else {
+                resolve("");
+              }
+            });
+          });
+
+          name = (name || "").trim();
+          if (name === "") {
+            name = suggestedName; // Use Telegram name if input is empty
+          }
+          if (name.length > 10) {
+            name = name.substring(0, 10);
+            Telegram.WebApp.showAlert("Name truncated to 10 characters.");
+          }
+          if (name) {
+            window.playerName = name;
+            await window.addToLeaderboard(window.playerName, score);
+            console.log('Score saved:', { name: window.playerName, score });
+            if (window.loadLeaderboard) await window.loadLeaderboard();
+          } else {
+            Telegram.WebApp.showAlert("No name provided. Score not saved.");
+          }
         } catch (error) {
-          console.error('Error sending data to bot:', error);
-          alert('Failed to send score to bot. Please try again.');
+          console.error('Error using Telegram WebApp:', error);
+          Telegram.WebApp.showAlert("Error saving score. Please try again.");
         }
       } else {
-        console.error('Telegram WebApp not available for sendData');
-        alert('Score submission requires Telegram. Play via the bot.');
+        console.error('Telegram WebApp not available');
+        alert('Name input requires Telegram. Play via the bot.');
       }
-
       window.gameState = "nameInput";
       window.nameInputVisible = true;
       setTimeout(() => {
-        window.gameState = "leaderboard";
+        window.gameState = "gameover";
         window.nameInputVisible = false;
-        console.log('Transitioning to leaderboard state');
       }, 2000);
     }
 
+    // Expose showNameInput to the global scope for sketch.js
     window.showNameInput = showNameInput;
-    window.loadLeaderboard = loadLeaderboard;
   </script>
 </body>
 </html>
