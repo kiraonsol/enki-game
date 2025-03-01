@@ -2,6 +2,8 @@
 <html>
 <head>
   <title>ENKI</title>
+  <!-- Add meta viewport tag for mobile scaling -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://*.europe-west1.firebasedatabase.app blob:; script-src-elem 'self' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://*.europe-west1.firebasedatabase.app blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.europe-west1.firebasedatabase.app; worker-src 'self' blob:; frame-src 'self' https://*.europe-west1.firebasedatabase.app;">
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
@@ -16,14 +18,17 @@
       height: 100%;
       overflow: hidden;
       background-color: black;
+      position: fixed;
+      top: 0;
+      left: 0;
     }
     canvas {
       display: block;
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      width: 100% !important;
+      height: 100% !important;
     }
   </style>
 </head>
