@@ -1,8 +1,7 @@
 <!DOCTYPE html>
-<html style="background-color: black;">
+<html>
 <head>
   <title>ENKI</title>
-  <!-- Updated CSP to allow all Firebase subdomains -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://*.europe-west1.firebasedatabase.app blob:; script-src-elem 'self' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://*.europe-west1.firebasedatabase.app blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.europe-west1.firebasedatabase.app; worker-src 'self' blob:; frame-src 'self' https://*.europe-west1.firebasedatabase.app;">
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
@@ -10,8 +9,22 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
   <style>
-    body { margin: 0; padding: 0; background-color: black; overflow: hidden; }
-    canvas { display: block; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: black;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
   </style>
 </head>
 <body>
