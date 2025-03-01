@@ -33,8 +33,7 @@ let boss = null;
 let minions = [];
 let gameWidth = 400;
 let gameHeight = 600;
-let scalingFactor;
-let shootTimer = 0;
+let scalingFactor = 1;
 
 let database = window.database;
 
@@ -77,14 +76,39 @@ function preload() {
 
 function setup() {
   console.log('setup called');
-  let aspectRatio = gameWidth / gameHeight;
-  if (windowWidth / windowHeight > aspectRatio) {
-    scalingFactor = windowHeight / gameHeight;
+  // Use Telegram WebApp viewport dimensions if available
+  let viewportWidth = window.innerWidth;
+  let viewportHeight = window.innerHeight;
+  if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+    viewportWidth = Telegram.WebApp.viewportWidth || window.innerWidth;
+    viewportHeight = Telegram.WebApp.viewportStableHeight || window.innerHeight;
+    console.log('Using Telegram viewport:', viewportWidth, viewportHeight);
   } else {
-    scalingFactor = windowWidth / gameWidth;
+    console.log('Using window dimensions:', viewportWidth, viewportHeight);
   }
-  createCanvas(gameWidth * scalingFactor, gameHeight * scalingFactor);
 
+  // Calculate game dimensions to fill the viewport while maintaining aspect ratio
+  const designAspectRatio = 400 / 600; // Original design aspect ratio
+  const viewportAspectRatio = viewportWidth / viewportHeight;
+
+  if (viewportAspectRatio > designAspectRatio) {
+    // Viewport is wider than design aspect ratio, fit to height
+    gameHeight = viewportHeight;
+    gameWidth = gameHeight * designAspectRatio;
+    scalingFactor = viewportHeight / 600;
+  } else {
+    // Viewport is taller than design aspect ratio, fit to width
+    gameWidth = viewportWidth;
+    gameHeight = gameWidth / designAspectRatio;
+    scalingFactor = viewportWidth / 400;
+  }
+
+  createCanvas(viewportWidth, viewportHeight);
+  console.log('Canvas size:', width, height);
+  console.log('Game dimensions:', gameWidth, gameHeight);
+  console.log('Scaling factor:', scalingFactor);
+
+  // Initialize stars
   stars = [];
   for (let i = 0; i < 100; i++) {
     stars.push({
@@ -113,17 +137,52 @@ function setup() {
   }
 
   selectEnemyFrames();
+
+  // Listen for viewport changes (e.g., keyboard open/close)
+  if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+    Telegram.WebApp.onEvent('viewportChanged', () => {
+      console.log('Viewport changed, updating canvas...');
+      resizeCanvasForViewport();
+    });
+  }
+}
+
+function resizeCanvasForViewport() {
+  let viewportWidth = window.innerWidth;
+  let viewportHeight = window.innerHeight;
+  if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+    viewportWidth = Telegram.WebApp.viewportWidth || window.innerWidth;
+    viewportHeight = Telegram.WebApp.viewportStableHeight || window.innerHeight;
+    console.log('Viewport changed to:', viewportWidth, viewportHeight);
+  }
+
+  const designAspectRatio = 400 / 600;
+  const viewportAspectRatio = viewportWidth / viewportHeight;
+
+  if (viewportAspectRatio > designAspectRatio) {
+    gameHeight = viewportHeight;
+    gameWidth = gameHeight * designAspectRatio;
+    scalingFactor = viewportHeight / 600;
+  } else {
+    gameWidth = viewportWidth;
+    gameHeight = gameWidth / designAspectRatio;
+    scalingFactor = viewportWidth / 400;
+  }
+
+  resizeCanvas(viewportWidth, viewportHeight);
+  console.log('Canvas resized to:', width, height);
+  console.log('Game dimensions:', gameWidth, gameHeight);
+  console.log('Scaling factor:', scalingFactor);
+
+  // Reposition stars to fit new game dimensions
+  for (let star of stars) {
+    star.x = random(gameWidth);
+    star.y = random(gameHeight);
+  }
 }
 
 function windowResized() {
-  let aspectRatio = gameWidth / gameHeight;
-  if (windowWidth / windowHeight > aspectRatio) {
-    scalingFactor = windowHeight / gameHeight;
-  } else {
-    scalingFactor = windowWidth / gameWidth;
-  }
-  resizeCanvas(gameWidth * scalingFactor, gameHeight * scalingFactor);
-  console.log('Canvas resized to:', width, height);
+  resizeCanvasForViewport();
 }
 
 function draw() {
@@ -146,15 +205,15 @@ function draw() {
 
     if (gameState === "start") {
       image(enkiTitle, 0, 0, gameWidth, gameHeight);
-      let logoWidth = 220;
+      let logoWidth = gameWidth * 0.55; // Scale logo proportionally
       let logoAspectRatio = enkiiLogo.width / enkiiLogo.height;
       let logoHeight = logoWidth / logoAspectRatio;
-      image(enkiiLogo, gameWidth / 2 - logoWidth / 2, 30, logoWidth, logoHeight);
+      image(enkiiLogo, gameWidth / 2 - logoWidth / 2, 30 * (gameHeight / 600), logoWidth, logoHeight);
       if (frameCount % 60 < 30) {
         fill(255);
         textSize(16 / scalingFactor);
         textAlign(CENTER);
-        text("Tap to start", gameWidth / 2, gameHeight - 50);
+        text("Tap to start", gameWidth / 2, gameHeight - 50 * (gameHeight / 600));
       }
     } else if (gameState === "playing") {
       if (!touches.length > 0) {
@@ -177,10 +236,10 @@ function draw() {
         let touchY = touches[0].y / scalingFactor;
 
         const offsetX = 0;
-        const offsetY = -50;
+        const offsetY = -50 * (gameHeight / 600);
 
         player.x = constrain(touchX + offsetX, 10, gameWidth - 10);
-        player.y = constrain(touchY + offsetY, gameHeight / 2, gameHeight - 20);
+        player.y = constrain(touchY + offsetY, gameHeight / 2, gameHeight - 20 * (gameHeight / 600));
 
         if (shootTimer <= 0) {
           let playerBullets = bullets.filter(b => b.dir === -1 && b.isPlayer).length;
@@ -454,51 +513,51 @@ function draw() {
             createEnemies(stage);
             selectEnemyFrames();
             levelTransition = false;
+          }
+        } else if (Array.isArray(enemies) ? enemies.length === 0 : true) {
+          levelTransition = true;
+          stage++;
+          console.log('Regular level completed, advancing to Stage:', stage);
+          if (stage % 5 === 0) {
+            spawnBossAndMinions();
+          } else {
+            createEnemies(stage);
+            selectEnemyFrames();
+          }
+          levelTransition = false;
         }
-      } else if (Array.isArray(enemies) ? enemies.length === 0 : true) {
-        levelTransition = true;
-        stage++;
-        console.log('Regular level completed, advancing to Stage:', stage);
-        if (stage % 5 === 0) {
-          spawnBossAndMinions();
-        } else {
-          createEnemies(stage);
-          selectEnemyFrames();
-        }
-        levelTransition = false;
       }
-    }
-  } else if (gameState === "gameover") {
-    console.log('Rendering game over screen');
-    fill(255);
-    textSize(32 / scalingFactor);
-    textAlign(CENTER);
-    text("Game Over", gameWidth / 2, gameHeight / 2 - 150);
-    textSize(16 / scalingFactor);
-    text("Your Score: " + player.score, gameWidth / 2, gameHeight / 2 - 100);
+    } else if (gameState === "gameover") {
+      console.log('Rendering game over screen');
+      fill(255);
+      textSize(32 / scalingFactor);
+      textAlign(CENTER);
+      text("Game Over", gameWidth / 2, gameHeight / 2 - 150 * (gameHeight / 600));
+      textSize(16 / scalingFactor);
+      text("Your Score: " + player.score, gameWidth / 2, gameHeight / 2 - 100 * (gameHeight / 600));
 
-    text("Leaderboard:", gameWidth / 2, gameHeight / 2 - 50);
-    if (SHOW_LEADERBOARD) {
-      if (!leaderboard || !Array.isArray(leaderboard)) {
-        console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
-        leaderboard = [];
-      }
-      for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
-        if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
-          text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + i * 20);
-        } else {
-          console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
+      text("Leaderboard:", gameWidth / 2, gameHeight / 2 - 50 * (gameHeight / 600));
+      if (SHOW_LEADERBOARD) {
+        if (!leaderboard || !Array.isArray(leaderboard)) {
+          console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
+          leaderboard = [];
         }
+        for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
+          if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
+            text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + (i * 20) * (gameHeight / 600));
+          } else {
+            console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
+          }
+        }
+      } else {
+        text("Leaderboard disabled for testing", gameWidth / 2, gameHeight / 2);
       }
-    } else {
-      text("Leaderboard disabled for testing", gameWidth / 2, gameHeight / 2);
+      text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120 * (gameHeight / 600));
     }
-    text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120);
+  } catch (error) {
+    console.error('Error in draw():', error, error.stack);
+    text("Error: " + error.message, gameWidth / 2, gameHeight / 2);
   }
-} catch (error) {
-  console.error('Error in draw():', error, error.stack);
-  text("Error: " + error.message, gameWidth / 2, gameHeight / 2);
-}
 }
 
 function touchStarted() {
@@ -582,8 +641,8 @@ function createEnemies(stage) {
     for (let i = 0; i < cols; i++) {
       for (let j = 0; j < rows; j++) {
         let type = j === 0 ? 1 : 0;
-        let x = 25 + i * (gameWidth - 50) / (cols - 1);
-        let y = 50 + j * 60;
+        let x = 25 * (gameWidth / 400) + i * (gameWidth - 50 * (gameWidth / 400)) / (cols - 1);
+        let y = 50 * (gameHeight / 600) + j * 60 * (gameHeight / 600);
         let enemyClass;
         if (j === 0) enemyClass = 'Big';
         else if (j === 1) enemyClass = 'Mid';
@@ -599,10 +658,10 @@ function createEnemies(stage) {
 }
 
 function spawnBossAndMinions() {
-  boss = new Boss(gameWidth / 2, 50);
+  boss = new Boss(gameWidth / 2, 50 * (gameHeight / 600));
   minions = [
-    new Enemy(gameWidth / 2 - 100, 100, 0, 'Starlink'),
-    new Enemy(gameWidth / 2 + 100, 100, 0, 'Starlink')
+    new Enemy(gameWidth / 2 - 100 * (gameWidth / 400), 100 * (gameHeight / 600), 0, 'Starlink'),
+    new Enemy(gameWidth / 2 + 100 * (gameWidth / 400), 100 * (gameHeight / 600), 0, 'Starlink')
   ];
   for (let minion of minions) {
     minion.speed = 2.0;
@@ -624,7 +683,7 @@ function selectEnemyFrames() {
 class Player {
   constructor() {
     this.x = gameWidth / 2;
-    this.y = gameHeight - 20;
+    this.y = gameHeight - 20 * (gameHeight / 600);
     this.speed = 5;
     this.lives = 3;
     this.score = 0;
@@ -635,7 +694,7 @@ class Player {
 
   draw() {
     let frame = this.numShips === 1 ? floor(frameCount / 10) % 3 : (frameCount % 60 < 30 ? 1 : 2);
-    image(playerSprite, this.x - 24, this.y - 24, 48, 48, frame * 48, 0, 48, 48);
+    image(playerSprite, this.x - 24 * (gameWidth / 400), this.y - 24 * (gameHeight / 600), 48 * (gameWidth / 400), 48 * (gameHeight / 600), frame * 48, 0, 48, 48);
     if (this.tripleShot) {
       this.tripleShotTimer--;
       if (this.tripleShotTimer <= 0) this.tripleShot = false;
@@ -644,12 +703,12 @@ class Player {
 
   moveLeft() {
     this.x -= this.speed;
-    if (this.x < 10) this.x = 10;
+    if (this.x < 10 * (gameWidth / 400)) this.x = 10 * (gameWidth / 400);
   }
 
   moveRight() {
     this.x += this.speed;
-    if (this.x > gameWidth - 10) this.x = gameWidth - 10;
+    if (this.x > gameWidth - 10 * (gameWidth / 400)) this.x = gameWidth - 10 * (gameWidth / 400);
   }
 
   moveUp() {
@@ -659,15 +718,15 @@ class Player {
 
   moveDown() {
     this.y += this.speed;
-    if (this.y > gameHeight - 20) this.y = gameHeight - 20;
+    if (this.y > gameHeight - 20 * (gameHeight / 600)) this.y = gameHeight - 20 * (gameHeight / 600);
   }
 
   shoot() {
     let bulletCount = this.tripleShot ? 3 : (this.numShips === 1 ? 1 : 2);
-    let offset = this.tripleShot ? 20 : (this.numShips === 1 ? 0 : 15);
+    let offset = this.tripleShot ? 20 * (gameWidth / 400) : (this.numShips === 1 ? 0 : 15 * (gameWidth / 400));
     for (let i = 0; i < bulletCount; i++) {
-      let xOffset = (i - (bulletCount - 1) / 2) * 10;
-      bullets.push(new Bullet(this.x + xOffset, this.y - 10, -1, true));
+      let xOffset = (i - (bulletCount - 1) / 2) * 10 * (gameWidth / 400);
+      bullets.push(new Bullet(this.x + xOffset, this.y - 10 * (gameHeight / 600), -1, true));
     }
     playShootingSound();
   }
@@ -688,16 +747,16 @@ class Enemy {
   update() {
     if (stage % 5 === 0) {
       this.x += this.speed * this.direction;
-      if (this.x < (gameWidth / 2 - 150) || this.x > (gameWidth / 2 + 150)) this.direction *= -1;
-      this.y += 0.1;
-      if (this.y > 150) this.y = 150;
+      if (this.x < (gameWidth / 2 - 150 * (gameWidth / 400)) || this.x > (gameWidth / 2 + 150 * (gameWidth / 400))) this.direction *= -1;
+      this.y += 0.1 * (gameHeight / 600);
+      if (this.y > 150 * (gameHeight / 600)) this.y = 150 * (gameHeight / 600);
     } else {
       this.x += this.speed * this.direction;
-      if (this.x < 20 || this.x > gameWidth - 20) {
+      if (this.x < 20 * (gameWidth / 400) || this.x > gameWidth - 20 * (gameWidth / 400)) {
         this.direction *= -1;
-        this.y += 20;
+        this.y += 20 * (gameHeight / 600);
       }
-      let captureRange = 50 + (stage - 1) * 5;
+      let captureRange = 50 * (gameWidth / 400) + (stage - 1) * 5;
       if (this.type === 1 && !this.captured && dist(this.x, this.y, player.x, player.y) < captureRange) {
         this.captured = true;
         player.lives--;
@@ -705,7 +764,7 @@ class Enemy {
         if (player.lives > 0) {
           setTimeout(() => {
             player.x = gameWidth / 2;
-            player.y = gameHeight - 20;
+            player.y = gameHeight - 20 * (gameHeight / 600);
           }, 1000);
         } else {
           gameState = "gameover";
@@ -720,25 +779,25 @@ class Enemy {
 
   draw() {
     if (stage % 5 === 0) {
-      image(starlinkMinion, this.x - 30, this.y - 30, 60, 60);
+      image(starlinkMinion, this.x - 30 * (gameWidth / 400), this.y - 30 * (gameHeight / 600), 60 * (gameWidth / 400), 60 * (gameHeight / 600));
     } else {
       let frame;
       if (this.enemyClass === 'Big') {
         frame = this.type === 0 ? redBigFrame : greenBigFrame;
-        image(bigEnemyFrames[frame], this.x - 25, this.y - 43, 50, 85);
+        image(bigEnemyFrames[frame], this.x - 25 * (gameWidth / 400), this.y - 43 * (gameHeight / 600), 50 * (gameWidth / 400), 85 * (gameHeight / 600));
       } else if (this.enemyClass === 'Mid') {
         frame = this.type === 0 ? redMidFrame : greenMidFrame;
-        image(midEnemyFrames[frame], this.x - 25, this.y - 43, 50, 85);
+        image(midEnemyFrames[frame], this.x - 25 * (gameWidth / 400), this.y - 43 * (gameHeight / 600), 50 * (gameWidth / 400), 85 * (gameHeight / 600));
       } else if (this.enemyClass === 'Small') {
         frame = this.type === 0 ? redSmallFrame : greenSmallFrame;
-        image(smallEnemyFrames[frame], this.x - 25, this.y - 43, 50, 85);
+        image(smallEnemyFrames[frame], this.x - 25 * (gameWidth / 400), this.y - 43 * (gameHeight / 600), 50 * (gameWidth / 400), 85 * (gameHeight / 600));
       } else {
         frame = this.type === 0 ? redMicroFrame : greenMicroFrame;
-        image(microEnemyFrames[frame], this.x - 25, this.y - 43, 50, 85);
+        image(microEnemyFrames[frame], this.x - 25 * (gameWidth / 400), this.y - 43 * (gameHeight / 600), 50 * (gameWidth / 400), 85 * (gameHeight / 600));
       }
       if (this.type === 1 && this.captured) {
         fill(255);
-        triangle(this.x, this.y + 43, this.x - 25, this.y + 85, this.x + 25, this.y + 85);
+        triangle(this.x, this.y + 43 * (gameHeight / 600), this.x - 25 * (gameWidth / 400), this.y + 85 * (gameHeight / 600), this.x + 25 * (gameWidth / 400), this.y + 85 * (gameHeight / 600));
       }
     }
   }
@@ -757,16 +816,16 @@ class Boss {
 
   update() {
     this.x += this.speed * this.direction;
-    if (this.x < 50 || this.x > gameWidth - 50) this.direction *= -1;
-    this.y += 0.1;
-    if (this.y > 150) this.y = 150;
+    if (this.x < 50 * (gameWidth / 400) || this.x > gameWidth - 50 * (gameWidth / 400)) this.direction *= -1;
+    this.y += 0.1 * (gameHeight / 600);
+    if (this.y > 150 * (gameHeight / 600)) this.y = 150 * (gameHeight / 600);
   }
 
   shoot() {
     this.shootTimer--;
     if (this.shootTimer <= 0) {
       for (let i = -1; i <= 1; i += 2) {
-        bullets.push(new Bullet(this.x + i * 30, this.y + 20, 1, false, true));
+        bullets.push(new Bullet(this.x + i * 30 * (gameWidth / 400), this.y + 20 * (gameHeight / 600), 1, false, true));
       }
       this.shootTimer = 90;
       playShootingSound();
@@ -774,8 +833,8 @@ class Boss {
 
     this.laserTimer--;
     if (this.laserTimer <= 0 && random() < 0.05) {
-      for (let x = 50; x < gameWidth - 50; x += 40) {
-        bullets.push(new Bullet(x, this.y + 20, 1, false, true));
+      for (let x = 50 * (gameWidth / 400); x < gameWidth - 50 * (gameWidth / 400); x += 40 * (gameWidth / 400)) {
+        bullets.push(new Bullet(x, this.y + 20 * (gameHeight / 600), 1, false, true));
       }
       this.laserTimer = 300;
       playExplosionSound();
@@ -783,11 +842,11 @@ class Boss {
   }
 
   draw() {
-    image(teslaBoss, this.x - 30, this.y - 30, 60, 60);
+    image(teslaBoss, this.x - 30 * (gameWidth / 400), this.y - 30 * (gameHeight / 600), 60 * (gameWidth / 400), 60 * (gameHeight / 600));
     fill(255, 0, 0);
-    rect(this.x - 30, this.y - 40, 60, 5);
+    rect(this.x - 30 * (gameWidth / 400), this.y - 40 * (gameHeight / 600), 60 * (gameWidth / 400), 5 * (gameHeight / 600));
     fill(0, 255, 0);
-    rect(this.x - 30, this.y - 40, 60 * (this.health / (20 + (stage - 1) * 5)), 5);
+    rect(this.x - 30 * (gameWidth / 400), this.y - 40 * (gameHeight / 600), 60 * (gameWidth / 400) * (this.health / (20 + (stage - 1) * 5)), 5 * (gameHeight / 600));
   }
 }
 
@@ -810,19 +869,19 @@ class Bullet {
       push();
       translate(this.x, this.y);
       if (this.dir === -1) rotate(PI);
-      image(laserBeam, -5, -15, 10, 30);
+      image(laserBeam, -5 * (gameWidth / 400), -15 * (gameHeight / 600), 10 * (gameWidth / 400), 30 * (gameHeight / 600));
       pop();
     } else if (this.isBoss) {
       push();
       translate(this.x, this.y);
       if (this.dir === -1) rotate(PI);
-      image(bossBeam, -10, -30, 20, 60);
+      image(bossBeam, -10 * (gameWidth / 400), -30 * (gameHeight / 600), 20 * (gameWidth / 400), 60 * (gameHeight / 600));
       pop();
     } else {
       push();
       translate(this.x, this.y);
       if (this.dir === -1) rotate(PI);
-      image(minionBeam, -5, -15, 10, 30);
+      image(minionBeam, -5 * (gameWidth / 400), -15 * (gameHeight / 600), 10 * (gameWidth / 400), 30 * (gameHeight / 600));
       pop();
     }
   }
@@ -865,7 +924,7 @@ class Explosion {
     noStroke();
     for (let particle of this.particles) {
       fill(255, particle.alpha);
-      ellipse(particle.x, particle.y, particle.size, particle.size);
+      ellipse(particle.x, particle.y, particle.size * (gameWidth / 400), particle.size * (gameHeight / 600));
     }
   }
 }
@@ -893,9 +952,9 @@ class Upgrade {
 
   draw() {
     if (this.type === 0) {
-      image(firepowerSheet, this.x - 14.5, this.y - 16, 29, 32, 0, this.frame * 32, 29, 32);
+      image(firepowerSheet, this.x - 14.5 * (gameWidth / 400), this.y - 16 * (gameHeight / 600), 29 * (gameWidth / 400), 32 * (gameHeight / 600), 0, this.frame * 32, 29, 32);
     } else {
-      image(heartSpinSheet, this.x - 8, this.y - 8.5, 16, 17, this.frame * 16, 0, 16, 17);
+      image(heartSpinSheet, this.x - 8 * (gameWidth / 400), this.y - 8.5 * (gameHeight / 600), 16 * (gameWidth / 400), 17 * (gameHeight / 600), this.frame * 16, 0, 16, 17);
     }
   }
 
