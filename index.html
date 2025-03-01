@@ -2,8 +2,8 @@
 <html style="background-color: black;">
 <head>
   <title>ENKI</title>
-  <!-- Updated CSP to allow Firebase long-polling scripts -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://enki-game-default-rtdb.europe-west1.firebasedatabase.app blob:; script-src-elem 'self' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://enki-game-default-rtdb.europe-west1.firebasedatabase.app blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com; worker-src 'self' blob:;">
+  <!-- Updated CSP to allow all Firebase subdomains -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://*.europe-west1.firebasedatabase.app blob:; script-src-elem 'self' 'unsafe-inline' https://telegram.org https://www.gstatic.com https://cdnjs.cloudflare.com https://*.europe-west1.firebasedatabase.app blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.europe-west1.firebasedatabase.app; worker-src 'self' blob:; frame-src 'self' https://*.europe-west1.firebasedatabase.app;">
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-database-compat.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
