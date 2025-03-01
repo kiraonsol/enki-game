@@ -73,10 +73,8 @@ async function showNameInput(score) {
       let suggestedName = user.username || user.first_name || "Player";
       console.log('Suggested name:', suggestedName);
 
-      // Fallback to browser prompt since showPrompt is not available in WebApp version 6.0
       console.log('Telegram WebApp version:', Telegram.WebApp.version);
       console.log('Showing name input prompt...');
-      // Notify user to update Telegram for better experience
       Telegram.WebApp.showAlert("Please update Telegram to the latest version for improved features. Using fallback prompt for now.");
       let name = prompt(`Score: ${score}\nEnter your name (leave blank for "${suggestedName}", max 10 chars):`, suggestedName);
       console.log('Name received from prompt:', name);
