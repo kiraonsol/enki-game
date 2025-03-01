@@ -28,63 +28,6 @@
       window.database = null;
       console.log('Firebase disabled for debugging');
     }
-
-    // Telegram WebApp initialization status
-    let isWebAppReady = false;
-
-    // Initialize Telegram WebApp with retry and error handling
-    function initializeTelegramWebApp() {
-      return new Promise((resolve) => {
-        let attempts = 200; // Retry for up to 100 seconds
-        console.log('Starting Telegram WebApp initialization...');
-        console.log('Window object keys:', Object.keys(window));
-        const interval = setInterval(() => {
-          if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-            try {
-              Telegram.WebApp.ready();
-              Telegram.WebApp.expand();
-              console.log('Telegram WebApp initialized successfully');
-              console.log('Telegram WebApp details:', Telegram.WebApp);
-              console.log('Init Data:', Telegram.WebApp.initData);
-              console.log('User:', Telegram.WebApp.initDataUnsafe?.user);
-              console.log('Platform:', Telegram.WebApp.platform);
-              console.log('Version:', Telegram.WebApp.version);
-              isWebAppReady = true;
-              clearInterval(interval);
-              resolve(true);
-            } catch (error) {
-              console.error('Telegram WebApp initialization error:', error);
-              clearInterval(interval);
-              resolve(false);
-            }
-          } else if (attempts === 0) {
-            console.warn('Telegram WebApp not available after retries');
-            console.log('Global window.Telegram:', window.Telegram);
-            clearInterval(interval);
-            resolve(false);
-          }
-          attempts--;
-          console.log('Attempting to initialize Telegram WebApp, attempts remaining:', attempts);
-        }, 500);
-      });
-    }
-
-    // Call initialization on load with initial delay
-    setTimeout(async () => {
-      const success = await initializeTelegramWebApp();
-      if (!success) {
-        console.error('Failed to initialize Telegram WebApp after all retries');
-      }
-    }, 5000);
-
-    // Re-attempt initialization dynamically
-    async function ensureWebAppReady() {
-      if (!isWebAppReady) {
-        console.log('WebApp not ready, re-attempting initialization...');
-        return await initializeTelegramWebApp();
-      }
-      return true;
-    }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
@@ -115,14 +58,11 @@
     window.nameInputVisible = false;
     window.leaderboardData = [];
 
-    // Start the game after a delay, proceeding regardless of WebApp initialization
+    // Start the game after a short delay
     setTimeout(() => {
       window.gameState = "start";
       console.log('Game state set to start');
-      if (!isWebAppReady) {
-        console.warn('Proceeding to start state despite Telegram WebApp not being initialized');
-      }
-    }, 5000); // 5-second delay to show loading message
+    }, 3000); // 3-second delay to show loading message
 
     // Load leaderboard data from Firebase
     async function loadLeaderboard() {
@@ -162,132 +102,20 @@
       }
     }
 
-    // Add score to Firebase leaderboard
-    async function addToLeaderboard(name, score) {
-      if (!window.database) {
-        console.error('Firebase database not available');
-        return;
-      }
-      try {
-        await window.database.ref('leaderboard').push({ name, score });
-        console.log('Score added to leaderboard:', { name, score });
-      } catch (error) {
-        console.error('Error adding score to leaderboard:', error);
-      }
-    }
-
-    // Show name input prompt (prioritize bot submission)
+    // Show name input prompt (always send to bot)
     async function showNameInput(score) {
       console.log('showNameInput called with score:', score);
-      let name = "";
-      
-      // Attempt to use Telegram WebApp for name input
-      const webAppSuccess = await ensureWebAppReady();
-      if (webAppSuccess) {
-        let attempts = 5;
-        while (attempts > 0) {
-          try {
-            Telegram.WebApp.ready();
-            console.log('Attempting to show Telegram prompt, attempt:', 6 - attempts);
-            name = await new Promise(resolve => {
-              Telegram.WebApp.showPopup({
-                title: "Enter Your Name",
-                message: `Score: ${score}\nEnter your name (max 10 chars):`,
-                buttons: [{ type: "ok", id: "submit" }, { type: "cancel" }]
-              }, (buttonId) => {
-                console.log('Popup response:', buttonId);
-                if (buttonId === "submit") {
-                  Telegram.WebApp.showPrompt("Your name:", resolve);
-                } else {
-                  resolve("");
-                }
-              });
-            });
-
-            console.log('Received name from prompt:', name);
-            break;
-          } catch (error) {
-            console.error('Error using Telegram WebApp, attempt:', 6 - attempts, error);
-            attempts--;
-            if (attempts === 0) {
-              console.error('All attempts failed, falling back to bot submission');
-              if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-                try {
-                  Telegram.WebApp.sendData(JSON.stringify({ action: "submit_score", score: score }));
-                  console.log('Sent score to bot via sendData:', score);
-                  window.gameState = "gameover";
-                  window.nameInputVisible = false;
-                  return;
-                } catch (error) {
-                  console.error('Error sending data to bot:', error);
-                  name = prompt("Enter your name (max 10 chars):", "");
-                  if (!name) {
-                    alert("No name entered. Score not saved.");
-                    window.gameState = "gameover";
-                    window.nameInputVisible = false;
-                    return;
-                  }
-                }
-              } else {
-                console.error('Telegram WebApp unavailable, falling back to browser prompt');
-                name = prompt("Enter your name (max 10 chars):", "");
-                if (!name) {
-                  alert("No name entered. Score not saved.");
-                  window.gameState = "gameover";
-                  window.nameInputVisible = false;
-                  return;
-                }
-              }
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+      if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+        try {
+          Telegram.WebApp.sendData(JSON.stringify({ action: "submit_score", score: score }));
+          console.log('Sent score to bot via sendData:', score);
+        } catch (error) {
+          console.error('Error sending data to bot:', error);
+          alert('Failed to send score to bot. Please try again.');
         }
       } else {
-        console.error('Telegram WebApp not available after all retries');
-        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-          try {
-            Telegram.WebApp.sendData(JSON.stringify({ action: "submit_score", score: score }));
-            console.log('Sent score to bot via sendData:', score);
-            window.gameState = "gameover";
-            window.nameInputVisible = false;
-            return;
-          } catch (error) {
-            console.error('Error sending data to bot:', error);
-          }
-        }
-        name = prompt("Enter your name (max 10 chars):", "");
-        if (!name) {
-          alert("No name entered. Score not saved.");
-          window.gameState = "gameover";
-          window.nameInputVisible = false;
-          return;
-        }
-      }
-
-      name = (name || "").trim();
-      if (name.length > 0) {
-        if (name.length > 10) {
-          name = name.substring(0, 10);
-          if (isWebAppReady) {
-            Telegram.WebApp.showAlert("Name truncated to 10 characters.");
-          } else {
-            alert("Name truncated to 10 characters.");
-          }
-        }
-        window.playerName = name;
-        if (window.database) {
-          await window.addToLeaderboard(window.playerName, score);
-          console.log('Score saved:', { name: window.playerName, score });
-          await loadLeaderboard();
-        } else {
-          console.log('Firebase not available, skipping score save');
-        }
-      } else {
-        if (isWebAppReady) {
-          Telegram.WebApp.showAlert("No name entered. Score not saved.");
-        } else {
-          alert("No name entered. Score not saved.");
-        }
+        console.error('Telegram WebApp not available for sendData');
+        alert('Score submission requires Telegram. Play via the bot.');
       }
 
       window.gameState = "nameInput";
