@@ -257,6 +257,11 @@ function draw() {
       }
       if (player.shootTimer > 0) player.shootTimer--;
 
+      // Update invincibility timer
+      if (player.invincibilityTimer > 0) {
+        player.invincibilityTimer -= deltaTime;
+      }
+
       for (let i = bullets.length - 1; i >= 0; i--) {
         bullets[i].update();
         if (bullets[i].offscreen()) {
@@ -378,8 +383,9 @@ function draw() {
           if (stage % 5 === 0 && boss) {
             if (bullet.isPlayer === false) {
               if (bullet.isBoss) {
-                if (dist(bullet.x, bullet.y, targetX, targetY) < 30) {
+                if (dist(bullet.x, bullet.y, targetX, targetY) < 30 && player.invincibilityTimer <= 0) {
                   player.lives--;
+                  player.invincibilityTimer = 1000; // 1-second invincibility
                   if (player.numShips === 2) {
                     player.numShips = 1;
                   }
@@ -399,8 +405,9 @@ function draw() {
                   break;
                 }
               } else {
-                if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius) {
+                if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius && player.invincibilityTimer <= 0) {
                   player.lives--;
+                  player.invincibilityTimer = 1000; // 1-second invincibility
                   if (player.numShips === 2) {
                     player.numShips = 1;
                   }
@@ -422,8 +429,9 @@ function draw() {
               }
             }
           } else {
-            if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius) {
+            if (dist(bullet.x, bullet.y, targetX, targetY) < hitRadius && player.invincibilityTimer <= 0) {
               player.lives--;
+              player.invincibilityTimer = 1000; // 1-second invincibility
               if (player.numShips === 2) {
                 player.numShips = 1;
               }
@@ -554,7 +562,6 @@ function draw() {
           console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
           leaderboard = [];
         }
-        // Show top 10 scores instead of top 5
         for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
           if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
             text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + (i * 20 - 30) * (gameHeight / 600));
@@ -713,6 +720,7 @@ class Player {
     this.tripleShot = false;
     this.tripleShotTimer = 0;
     this.shootTimer = 0;
+    this.invincibilityTimer = 0; // Initialize invincibility timer
   }
 
   draw() {
@@ -780,9 +788,10 @@ class Enemy {
         this.y += 20 * (gameHeight / 600);
       }
       let captureRange = 50 * (gameWidth / 400) + (stage - 1) * 5;
-      if (this.type === 1 && !this.captured && dist(this.x, this.y, player.x, player.y) < captureRange) {
+      if (this.type === 1 && !this.captured && dist(this.x, this.y, player.x, player.y) < captureRange && player.invincibilityTimer <= 0) {
         this.captured = true;
         player.lives--;
+        player.invincibilityTimer = 1000; // 1-second invincibility
         if (player.numShips === 2) player.numShips = 1;
         if (player.lives > 0) {
           setTimeout(() => {
@@ -992,7 +1001,7 @@ class Upgrade {
       player.tripleShot = true;
       player.tripleShotTimer = 600;
     } else {
-      player.lives++; // Removed the cap: previously player.lives = min(player.lives + 1, 5);
+      player.lives++;
     }
   }
 }
@@ -1045,7 +1054,7 @@ function loadLeaderboard() {
     }
     window.database.ref('leaderboard').once('value', snapshot => {
       const data = snapshot.val();
-      leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : []; // Updated to top 10
+      leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : [];
       console.log('Loaded leaderboard from Firebase:', leaderboard);
       resolve();
     }, error => {
@@ -1076,7 +1085,7 @@ function addToLeaderboard(name, score) {
         console.log('Score successfully pushed to Firebase');
         window.database.ref('leaderboard').once('value', snapshot => {
           const data = snapshot.val();
-          leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : []; // Updated to top 10
+          leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : [];
           console.log('Updated leaderboard from Firebase:', leaderboard);
           resolve();
         }, error => {
