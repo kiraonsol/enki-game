@@ -34,6 +34,8 @@ let minions = [];
 let gameWidth = 400;
 let gameHeight = 600;
 let scalingFactor = 1;
+let countdown = 3000; // 3-second countdown in milliseconds
+let countdownStart = 0; // Time when countdown starts
 
 let database = window.database;
 
@@ -385,6 +387,8 @@ function draw() {
                   playHitSound();
                   if (player.lives <= 0) {
                     gameState = "gameover";
+                    countdownStart = millis(); // Start the countdown
+                    countdown = 3000; // Reset countdown to 3 seconds
                     setTimeout(() => {
                       window.showNameInput(player.score);
                     }, 2000);
@@ -404,6 +408,8 @@ function draw() {
                   playHitSound();
                   if (player.lives <= 0) {
                     gameState = "gameover";
+                    countdownStart = millis(); // Start the countdown
+                    countdown = 3000; // Reset countdown to 3 seconds
                     setTimeout(() => {
                       window.showNameInput(player.score);
                     }, 2000);
@@ -425,6 +431,8 @@ function draw() {
               playHitSound();
               if (player.lives <= 0) {
                 gameState = "gameover";
+                countdownStart = millis(); // Start the countdown
+                countdown = 3000; // Reset countdown to 3 seconds
                 setTimeout(() => {
                   window.showNameInput(player.score);
                 }, 2000);
@@ -546,9 +554,10 @@ function draw() {
           console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
           leaderboard = [];
         }
-        for (let i = 0; i < Math.min(5, leaderboard.length); i++) {
+        // Show top 10 scores instead of top 5
+        for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
           if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
-            text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + (i * 20) * (gameHeight / 600));
+            text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + (i * 20 - 30) * (gameHeight / 600));
           } else {
             console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
           }
@@ -556,7 +565,16 @@ function draw() {
       } else {
         text("Leaderboard disabled for testing", gameWidth / 2, gameHeight / 2);
       }
-      text("Tap to restart", gameWidth / 2, gameHeight / 2 + 120 * (gameHeight / 600));
+
+      // Calculate and display countdown
+      let elapsed = millis() - countdownStart;
+      countdown = 3000 - elapsed;
+      let secondsLeft = Math.ceil(countdown / 1000);
+      if (secondsLeft < 0) secondsLeft = 0;
+      text(`Restart in ${secondsLeft}...`, gameWidth / 2, gameHeight / 2 + 180 * (gameHeight / 600));
+      if (countdown <= 0) {
+        text("Tap to restart", gameWidth / 2, gameHeight / 2 + 210 * (gameHeight / 600));
+      }
     }
   } catch (error) {
     console.error('Error in draw():', error, error.stack);
@@ -594,7 +612,7 @@ function touchStarted() {
     }
   }
 
-  if ((gameState === "start" || gameState === "gameover") && !window.nameInputVisible) {
+  if ((gameState === "start" || (gameState === "gameover" && countdown <= 0)) && !window.nameInputVisible) {
     startGame();
   }
   return false;
@@ -609,7 +627,7 @@ function keyPressed() {
       if (playerBullets < player.numShips * 2) {
         player.shoot();
       }
-    } else if (gameState === "gameover") {
+    } else if (gameState === "gameover" && countdown <= 0) {
       startGame();
     }
   }
@@ -694,7 +712,7 @@ class Player {
     this.numShips = 1;
     this.tripleShot = false;
     this.tripleShotTimer = 0;
-    this.shootTimer = 0; // Initialize shootTimer as a property of Player
+    this.shootTimer = 0;
   }
 
   draw() {
@@ -773,6 +791,8 @@ class Enemy {
           }, 1000);
         } else {
           gameState = "gameover";
+          countdownStart = millis(); // Start the countdown
+          countdown = 3000; // Reset countdown to 3 seconds
           setTimeout(() => {
             window.showNameInput(player.score);
           }, 2000);
@@ -972,7 +992,7 @@ class Upgrade {
       player.tripleShot = true;
       player.tripleShotTimer = 600;
     } else {
-      player.lives = min(player.lives + 1, 5);
+      player.lives++; // Removed the cap: previously player.lives = min(player.lives + 1, 5);
     }
   }
 }
@@ -1025,7 +1045,7 @@ function loadLeaderboard() {
     }
     window.database.ref('leaderboard').once('value', snapshot => {
       const data = snapshot.val();
-      leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 5) : [];
+      leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : []; // Updated to top 10
       console.log('Loaded leaderboard from Firebase:', leaderboard);
       resolve();
     }, error => {
@@ -1056,7 +1076,7 @@ function addToLeaderboard(name, score) {
         console.log('Score successfully pushed to Firebase');
         window.database.ref('leaderboard').once('value', snapshot => {
           const data = snapshot.val();
-          leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 5) : [];
+          leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : []; // Updated to top 10
           console.log('Updated leaderboard from Firebase:', leaderboard);
           resolve();
         }, error => {
