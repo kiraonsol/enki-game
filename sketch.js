@@ -562,9 +562,20 @@ function draw() {
           console.error('leaderboard is undefined or not an array in game over screen:', leaderboard);
           leaderboard = [];
         }
+        // Split leaderboard into two columns: 1-10 on the left, 11-20 on the right
+        // Left column: Ranks 1-10
+        textAlign(CENTER);
         for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
           if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
-            text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 2, gameHeight / 2 + (i * 20 - 30) * (gameHeight / 600));
+            text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, gameWidth / 4, gameHeight / 2 + (i * 20 - 30) * (gameHeight / 600));
+          } else {
+            console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
+          }
+        }
+        // Right column: Ranks 11-20
+        for (let i = 10; i < Math.min(20, leaderboard.length); i++) {
+          if (leaderboard[i] && typeof leaderboard[i].name === 'string' && Number.isFinite(leaderboard[i].score)) {
+            text(`${i + 1}. ${leaderboard[i].name}: ${leaderboard[i].score}`, 3 * gameWidth / 4, gameHeight / 2 + ((i - 10) * 20 - 30) * (gameHeight / 600));
           } else {
             console.error(`Invalid leaderboard entry at index ${i}:`, leaderboard[i]);
           }
@@ -1054,7 +1065,7 @@ function loadLeaderboard() {
     }
     window.database.ref('leaderboard').once('value', snapshot => {
       const data = snapshot.val();
-      leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : [];
+      leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 20) : []; // Updated to top 20
       console.log('Loaded leaderboard from Firebase:', leaderboard);
       resolve();
     }, error => {
@@ -1085,7 +1096,7 @@ function addToLeaderboard(name, score) {
         console.log('Score successfully pushed to Firebase');
         window.database.ref('leaderboard').once('value', snapshot => {
           const data = snapshot.val();
-          leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 10) : [];
+          leaderboard = data ? Object.values(data).sort((a, b) => b.score - a.score).slice(0, 20) : []; // Updated to top 20
           console.log('Updated leaderboard from Firebase:', leaderboard);
           resolve();
         }, error => {
